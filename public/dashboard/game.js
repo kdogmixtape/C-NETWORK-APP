@@ -1,92 +1,79 @@
-const canvas = document.getElementById("gridCanvas");
-const ctx = canvas.getContext("2d");
-const gridSize = 8;
-const squareSize = canvas.width / gridSize;
+var gameRunning = true;
 
-let ships = [
-  { size: 4, placed: false, tiles: [] },
-  { size: 3, placed: false, tiles: [] },
-  { size: 2, placed: false, tiles: [] },
-  { size: 1, placed: false, tiles: [] },
-];
-let currentShipIndex = 0; // Track the current ship being placed
-let grid = Array(gridSize)
-  .fill()
-  .map(() => Array(gridSize).fill(false)); // Grid to track placements
-
-//Draw the grid and any placed ships
-function drawGrid() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      ctx.strokeRect(
-        col * squareSize,
-        row * squareSize,
-        squareSize,
-        squareSize,
-      );
-      if (grid[row][col]) {
-        ctx.fillStyle = "gray"; // Color for filled squares
-        ctx.fillRect(
-          col * squareSize,
-          row * squareSize,
-          squareSize,
-          squareSize,
-        );
-      }
-    }
+function initCanvas() {
+  if (!canvas.getContext) {
+    console.error("Error: canvas not supported in this browser");
+    return;
   }
-  //Draw ships
-  ships.forEach((ship) => {
-    ship.tiles.forEach((tile) => {
-      ctx.fillStyle = "gray";
-      ctx.fillRect(
-        tile.col * squareSize,
-        tile.row * squareSize,
-        squareSize,
-        squareSize,
-      );
-    });
-  });
+
+  CTX = canvas.getContext("2d");
+
+  // start the game loop
+  gameIntervalId = setInterval(() => gameloop(), 1 / FPS);
 }
 
-//Listens for clicks then places a "ship tile"
-canvas.addEventListener("click", (e) => {
-  if (currentShipIndex >= ships.length) return; // No more ships to place
+// all position updates, frame updates should happen here (no draws)
+function update() {
+  cursor.update();
+}
 
-  const x = e.offsetX;
-  const y = e.offsetY;
-  const row = Math.floor(y / squareSize);
-  const col = Math.floor(x / squareSize);
+// all drawing should happen here
+function draw() {
+  // draw background
+  CTX.save();
+  CTX.globalAlpha = 1;
+  CTX.fillStyle = BACKGROUND_COL;
+  CTX.fillRect(0, 0, canvas.width, canvas.height);
+  CTX.restore();
 
-  let currentShip = ships[currentShipIndex];
+  playerBoard.draw();
+  drawShotBoard();
 
-  //Checks if the square is already occupied or not
-  if (grid[row][col]) return;
+  ships.forEach((ship) => {
+    ship.draw();
+  });
+  cursor.draw();
+}
 
-  //This checks if there is enough tiles left to place
-  if (currentShip.tiles.length < currentShip.size) {
-    currentShip.tiles.push({ row, col });
-    grid[row][col] = true;
+function gameloop() {
+  if (!gameRunning) {
+    return;
   }
 
-  if (currentShip.tiles.length === currentShip.size) {
-    currentShip.placed = true;
-    currentShipIndex++;
-    if (currentShipIndex < ships.length) {
-      document.getElementById("status").textContent =
-        `Place your ${ships[currentShipIndex].size}-sized ship...`;
-    } else {
-      document.getElementById("status").textContent =
-        "All ships placed! Locking the board.";
-      setTimeout(() => {
-        alert("Game started!");
-        // Here you can proceed to start the actual game logic
-      }, 1000);
-    }
-  }
-  drawGrid();
-});
+  draw();
+  update();
+}
 
-// Initial drawing of the grid
-drawGrid();
+function drawShotBoard() {
+  CTX.save();
+
+  CTX.strokeStyle = BOARD_LINES_COL;
+  CTX.globalAlpha = 0.4;
+  // draw vertical gridlines
+  for (let col = 0; col < BOARD_DIM + 1; col++) {
+    CTX.beginPath();
+    CTX.moveTo(
+      col * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_X,
+      SHOT_BOARD_OFFSET_Y,
+    );
+    CTX.lineTo(
+      col * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_X,
+      SHOT_BOARD_OFFSET_Y + SHOT_BOARD_HEIGHT,
+    );
+    CTX.stroke();
+  }
+  // draw horizontal gridlines
+  for (let row = 0; row < BOARD_DIM + 1; row++) {
+    CTX.beginPath();
+    CTX.moveTo(
+      SHOT_BOARD_OFFSET_X,
+      row * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_Y,
+    );
+    CTX.lineTo(
+      SHOT_BOARD_OFFSET_X + SHOT_BOARD_WIDTH,
+      row * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_Y,
+    );
+    CTX.stroke();
+  }
+  CTX.restore();
+}

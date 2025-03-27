@@ -27,11 +27,18 @@
     </style>
   </head>
   <body>
-    <h1>Your Board</h1>
-    <canvas id="gridCanvas" width="400" height="400"></canvas>
-    <div id="status">Place your 4-sized ship...</div>
-
-    <script type="text/javascript" src="dashboard/index.js"></script>
-    <script type="text/javascript" src="dashboard/game.js"></script>
+    <h1>Battleship</h1>
+    <canvas id="gridCanvas" width="800" height="500"></canvas>
+    <div id="status">Game Started</div>
+    <div style="display: none">
+      <img id="cursor" src="cursor.png" alt="" />
+      <img id="battleships" src="battleships.png" alt="" />
+    </div>
+    <script type="text/javascript" src="index.js"></script>
+    <script type="text/javascript" src="cursor.js"></script>
+    <script type="text/javascript" src="ships.js"></script>
+    <script type="text/javascript" src="playerBoard.js"></script>
+    <script type="text/javascript" src="gameSetup.js"></script>
+    <script type="text/javascript" src="game.js"></script>
   </body>
 </html>
