@@ -47,8 +47,7 @@ function gameloop() {
 function drawShotBoard() {
   CTX.save();
 
-  CTX.strokeStyle = BOARD_LINES_COL;
-  CTX.globalAlpha = 0.4;
+  CTX.strokeStyle = BOARD_COL;
   // draw vertical gridlines
   for (let col = 0; col < BOARD_DIM + 1; col++) {
     CTX.beginPath();

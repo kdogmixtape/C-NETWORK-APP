@@ -7,8 +7,9 @@ class PlayerBoard {
 
   draw() {
     CTX.save();
-    CTX.strokeStyle = BOARD_LINES_COL;
-    CTX.globalAlpha = 0.4;
+
+    /*
+    CTX.strokeStyle = BOARD_COL;
 
     // draw vertical gridlines
     for (let col = 0; col < BOARD_DIM + 1; col++) {
@@ -29,6 +30,20 @@ class PlayerBoard {
         row * BOARD_UNIT_SIZE + BOARD_OFFSET_Y,
       );
       CTX.stroke();
+    }
+    */
+
+    CTX.fillStyle = BOARD_COL;
+    const padding = 2;
+    for (let row = 0; row < BOARD_DIM; row++) {
+      for (let col = 0; col < BOARD_DIM; col++) {
+        CTX.fillRect(
+          BOARD_OFFSET_X + row * BOARD_UNIT_SIZE + padding,
+          BOARD_OFFSET_Y + col * BOARD_UNIT_SIZE + padding,
+          BOARD_UNIT_SIZE - padding * 2,
+          BOARD_UNIT_SIZE - padding * 2,
+        );
+      }
     }
     CTX.restore();
   }

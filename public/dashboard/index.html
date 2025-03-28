@@ -12,14 +12,11 @@
         align-items: center;
         height: 100vh;
         margin: 0;
-        background-color: #f0f0f0;
+        background-color: #5b6ee1;
         font-family: Arial, sans-serif;
       }
-      h1 {
-        margin-bottom: 20px;
-      }
       canvas {
-        border: 1px solid black;
+        border: none;
       }
       #status {
         margin-top: 20px;
@@ -27,9 +24,7 @@
     </style>
   </head>
   <body>
-    <h1>Battleship</h1>
-    <canvas id="gridCanvas" width="800" height="500"></canvas>
-    <div id="status">Game Started</div>
+    <canvas id="gridCanvas" width="1200" height="800"></canvas>
     <div style="display: none">
       <img id="cursor" src="cursor.png" alt="" />
       <img id="battleships" src="battleships.png" alt="" />

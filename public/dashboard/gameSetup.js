@@ -2,6 +2,9 @@ const canvas = document.getElementById("gridCanvas");
 const cursorSpritesheet = document.getElementById("cursor");
 const battleshipSpritesheet = document.getElementById("battleships");
 
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
 // all caps means global constant
 // these values are designed to scale properly when the window scales
 const FPS = 20;
@@ -10,18 +13,18 @@ const NUM_ROWS = canvas.width / UNIT_SIZE;
 const NUM_COLUMNS = canvas.height / UNIT_SIZE;
 
 const BACKGROUND_COL = "#5b6ee1";
-const BOARD_LINES_COL = "#000000";
+const BOARD_COL = "#5162c8";
 
 const BOARD_DIM = 8;
 const BOARD_WIDTH = BOARD_DIM * UNIT_SIZE; // px
 const BOARD_HEIGHT = BOARD_DIM * UNIT_SIZE; // px
-const BOARD_OFFSET_X = canvas.width / 2 - 20 - BOARD_WIDTH; // px (anchored to center)
+const BOARD_OFFSET_X = canvas.width / 2 - 50 - BOARD_WIDTH; // px (anchored to center)
 const BOARD_OFFSET_Y = canvas.height / 2 - BOARD_HEIGHT / 2; // px (vertically centered)
 const BOARD_UNIT_SIZE = BOARD_WIDTH / BOARD_DIM;
 
 const SHOT_BOARD_WIDTH = BOARD_DIM * UNIT_SIZE * 0.8; // px
 const SHOT_BOARD_HEIGHT = BOARD_DIM * UNIT_SIZE * 0.8; // px
-const SHOT_BOARD_OFFSET_X = canvas.width / 2 + 20; // (anchored to center)
+const SHOT_BOARD_OFFSET_X = canvas.width / 2 + 50; // (anchored to center)
 const SHOT_BOARD_OFFSET_Y = canvas.height / 2 - SHOT_BOARD_HEIGHT / 2; // px (vertically centered)
 const SHOT_BOARD_UNIT_SIZE = SHOT_BOARD_WIDTH / BOARD_DIM;
 
