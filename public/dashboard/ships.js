@@ -18,7 +18,9 @@ class Ship {
 
   draw() {
     CTX.save();
+    CTX.translate(this.x + UNIT_SIZE / 2, this.y + UNIT_SIZE / 2);
     CTX.rotate((this.direction * 90 * Math.PI) / 180);
+    CTX.translate(-this.x - UNIT_SIZE / 2, -this.y - UNIT_SIZE / 2);
     CTX.drawImage(
       this.spritesheet,
       this.w * this.currentFrame,
