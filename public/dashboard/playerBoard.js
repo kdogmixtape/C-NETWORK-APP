@@ -8,7 +8,7 @@ class PlayerBoard {
   draw() {
     CTX.save();
 
-    /*
+    /* another way to draw the board
     CTX.strokeStyle = BOARD_COL;
 
     // draw vertical gridlines

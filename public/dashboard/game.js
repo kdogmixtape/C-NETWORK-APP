@@ -50,34 +50,19 @@ function gameloop() {
 
 function drawShotBoard() {
   CTX.save();
+  CTX.fillStyle = BOARD_COL;
+  const padding = 1;
+  for (let row = 0; row < BOARD_DIM; row++) {
+    for (let col = 0; col < BOARD_DIM; col++) {
+      CTX.fillRect(
+        SHOT_BOARD_OFFSET_X + row * SHOT_BOARD_UNIT_SIZE + padding,
+        SHOT_BOARD_OFFSET_Y + col * SHOT_BOARD_UNIT_SIZE + padding,
+        SHOT_BOARD_UNIT_SIZE - padding * 2,
+        SHOT_BOARD_UNIT_SIZE - padding * 2,
+      );
+    }
+  }
 
-  CTX.strokeStyle = BOARD_COL;
-  // draw vertical gridlines
-  for (let col = 0; col < BOARD_DIM + 1; col++) {
-    CTX.beginPath();
-    CTX.moveTo(
-      col * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_X,
-      SHOT_BOARD_OFFSET_Y,
-    );
-    CTX.lineTo(
-      col * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_X,
-      SHOT_BOARD_OFFSET_Y + SHOT_BOARD_HEIGHT,
-    );
-    CTX.stroke();
-  }
-  // draw horizontal gridlines
-  for (let row = 0; row < BOARD_DIM + 1; row++) {
-    CTX.beginPath();
-    CTX.moveTo(
-      SHOT_BOARD_OFFSET_X,
-      row * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_Y,
-    );
-    CTX.lineTo(
-      SHOT_BOARD_OFFSET_X + SHOT_BOARD_WIDTH,
-      row * SHOT_BOARD_UNIT_SIZE + SHOT_BOARD_OFFSET_Y,
-    );
-    CTX.stroke();
-  }
   CTX.restore();
 }
 
@@ -114,5 +99,5 @@ const waveIntervalId = setInterval(
       img: img,
     });
   },
-  Math.max(Math.random() * 4000, 1500),
+  Math.max(Math.random() * 4000, 2000),
 );
