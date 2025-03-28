@@ -1,6 +1,9 @@
 const canvas = document.getElementById("gridCanvas");
 const cursorSpritesheet = document.getElementById("cursor");
 const battleshipSpritesheet = document.getElementById("battleships");
+const waveImg1 = document.getElementById("waves1");
+const waveImg2 = document.getElementById("waves2");
+const wavesImgs = [waveImg1, waveImg2];
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -8,6 +11,7 @@ canvas.height = window.innerHeight;
 // all caps means global constant
 // these values are designed to scale properly when the window scales
 const FPS = 20;
+var LAST_FRAME_TIME = null;
 const UNIT_SIZE = 32; // px
 const NUM_ROWS = canvas.width / UNIT_SIZE;
 const NUM_COLUMNS = canvas.height / UNIT_SIZE;
@@ -34,6 +38,9 @@ const DIRECTION_RIGHT = 1;
 const DIRECTION_DOWN = 2;
 const DIRECTION_LEFT = 3;
 const NUM_DIRECTIONS = 4;
+
+const WAVE_SPEED = 2;
+const waves = [];
 
 var CTX = null;
 
@@ -108,5 +115,9 @@ window.addEventListener("keydown", (event) => {
     default:
   }
 });
+
+function getDeltaTime() {
+  return (new Date().getTime() - LAST_FRAME_TIME) / 100;
+}
 
 window.onload = () => initCanvas();
