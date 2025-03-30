@@ -58,10 +58,11 @@ class Cursor {
 
   dropShipOnGrid() {
     const { placeX, placeY } = this.shipAttached.getPlacePoints();
-    const { boardRow, boardCol } = playerBoard.getBoardPosFromXY(
+    const { boardRow, boardCol, x, y } = playerBoard.getBoardPosFromXY(
       placeX,
       placeY,
     );
+
     this.shipAttached.boardRow = boardRow;
     this.shipAttached.boardCol = boardCol;
     this.shipAttached.x = boardRow * BOARD_UNIT_SIZE + BOARD_OFFSET_X;
@@ -79,6 +80,8 @@ class Cursor {
 
   rotateShip() {
     if (this.shipAttached != null) {
+      this.initialOffsetX = BOARD_UNIT_SIZE / 2;
+      this.initialOffsetY = BOARD_UNIT_SIZE / 2;
       this.shipAttached.rotate();
     }
   }

@@ -67,6 +67,11 @@ class PlayerBoard {
     row = Math.min(row, BOARD_DIM - 1);
     col = Math.min(col, BOARD_DIM - 1);
 
-    return { boardRow: row, boardCol: col };
+    return {
+      boardRow: row,
+      boardCol: col,
+      x: BOARD_OFFSET_X + boardXPosPixels,
+      y: BOARD_OFFSET_Y + boardYPosPixels,
+    };
   }
 }

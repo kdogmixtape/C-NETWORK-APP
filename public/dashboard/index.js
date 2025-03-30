@@ -4,7 +4,27 @@ const websocket = new WebSocket("ws://localhost:4242/ws");
 // Must send after connections are open
 websocket.onopen = (event) => {
   console.log("Websocket successfully connected");
-  //websocket.send("Here's some text that the server is urgently awaiting!");
+
+  let board = [
+    ["0", "0", "1", "0", "0", "0", "0", "0"],
+    ["0", "0", "0", "0", "0", "0", "0", "0"],
+    ["0", "0", "0", "0", "0", "0", "0", "0"],
+    ["0", "0", "0", "0", "0", "0", "0", "0"],
+    ["0", "0", "0", "0", "0", "0", "0", "0"],
+    ["3", "0", "0", "0", "0", "0", "0", "0"],
+    ["3", "0", "0", "0", "0", "0", "0", "0"],
+    ["3", "0", "0", "0", "0", "0", "2", "2"],
+  ];
+
+  let message = new Uint8Array(65);
+
+  for (let i = 0; i < 8; i++) {
+    for (let j = 0; j < 8; j++) {
+      message[i * 8 + j + 1] = board[i][j];
+    }
+  }
+  message[0] = 0xf0;
+  websocket.send(message);
 };
 
 websocket.onmessage = (event) => {

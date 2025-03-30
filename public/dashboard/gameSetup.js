@@ -18,6 +18,8 @@ const NUM_COLUMNS = canvas.height / UNIT_SIZE;
 
 const BACKGROUND_COL = "#5b6ee1";
 const BOARD_COL = "#5162c8";
+const BUTTON_COL = "blue";
+const TEXT_COL = "green";
 
 const BOARD_DIM = 8;
 const BOARD_WIDTH = BOARD_DIM * UNIT_SIZE; // px
@@ -33,14 +35,15 @@ const SHOT_BOARD_OFFSET_Y = canvas.height / 2 - SHOT_BOARD_HEIGHT / 2; // px (ve
 const SHOT_BOARD_UNIT_SIZE = SHOT_BOARD_WIDTH / BOARD_DIM;
 
 // Directions
-const DIRECTION_UP = 0;
+const DIRECTION_DOWN = 0;
 const DIRECTION_RIGHT = 1;
-const DIRECTION_DOWN = 2;
-const DIRECTION_LEFT = 3;
-const NUM_DIRECTIONS = 4;
+const NUM_DIRECTIONS = 2;
 
 const WAVE_SPEED = 2;
 const waves = [];
+
+// Debug
+const DEBUG_MODE = false;
 
 var CTX = null;
 
@@ -49,6 +52,12 @@ var gameIntervalId = null;
 let ships = createShips();
 let cursor = new Cursor(cursorSpritesheet);
 let playerBoard = new PlayerBoard();
+let ui = new UI();
+ui.buttons.push(
+  new Button(0, 0, UNIT_SIZE * 3, UNIT_SIZE, "hello", () =>
+    console.log("hello"),
+  ),
+);
 
 document.addEventListener("mousemove", (e) => {
   const relativeX = e.clientX - canvas.offsetLeft;
@@ -86,12 +95,8 @@ canvas.addEventListener("mousedown", (e) => {
   if (cursor.shipAttached == null) {
     for (let i = 0; i < ships.length; i++) {
       let ship = ships[i];
-      if (
-        x >= ship.x &&
-        x <= ship.x + ship.w &&
-        y >= ship.y &&
-        y <= ship.y + ship.h
-      ) {
+      const { x1, x2, y1, y2 } = ship.getBounds();
+      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
         cursor.attachShip(ship);
         break;
       }
@@ -111,6 +116,7 @@ window.addEventListener("keydown", (event) => {
   switch (key) {
     case "r":
       console.log("rotate");
+
       cursor.rotateShip();
     default:
   }

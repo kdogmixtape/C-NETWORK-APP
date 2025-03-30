@@ -36,6 +36,7 @@ function draw() {
   ships.forEach((ship) => {
     ship.draw();
   });
+  ui.draw();
   cursor.draw();
 }
 
