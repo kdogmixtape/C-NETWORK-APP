@@ -7,6 +7,7 @@
  */
 
 #include "defs.h"
+#include "game.h"
 #include "http.h"
 #include "structs.h"
 #include "ws.h"
@@ -204,16 +205,21 @@ void process_clients(int sockfd)
           clients[i] = NULL;
         }
         else {
+          int game_msg_opcode;
           switch (frame->opcode) {
-          case OP_TEXT:
+          case OP_TEXT: // for testing
             printf("data frame message: ");
             for (int i = 0; i < frame->msg_len; i++) {
               char val = frame->message[i] ^ frame->mask[i % 4];
               printf("%c", val);
             }
             printf("\n");
-            char message[] = "Hello There";
+            char message[] = "Hello from server";
             send_ws_message(clients[i], message, strlen(message));
+            break;
+          case OP_BIN: // for game messages
+            game_msg_opcode = parse_game_msg(frame->message);
+            printf("Game msg opcode: %d\n", game_msg_opcode);
             break;
           case OP_PING:
             printf("Received Ping\n");

@@ -41,7 +41,7 @@ int send_http_redirect(int fd, char *url);
  * @param socket file descriptor
  * @param text or html content
  */
-int send_http_response(int fd, int status_code, char *message, char *content);
+int send_http_response(int fd, int status_code, char *message, char *content, int content_len, char* content_type);
 
 /*
  * Handles sending text/html content via the HTTP protocol

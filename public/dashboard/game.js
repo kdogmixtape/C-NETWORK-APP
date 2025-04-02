@@ -1,92 +1,104 @@
-const canvas = document.getElementById("gridCanvas");
-const ctx = canvas.getContext("2d");
-const gridSize = 8;
-const squareSize = canvas.width / gridSize;
+var gameRunning = true;
 
-let ships = [
-  { size: 4, placed: false, tiles: [] },
-  { size: 3, placed: false, tiles: [] },
-  { size: 2, placed: false, tiles: [] },
-  { size: 1, placed: false, tiles: [] },
-];
-let currentShipIndex = 0; // Track the current ship being placed
-let grid = Array(gridSize)
-  .fill()
-  .map(() => Array(gridSize).fill(false)); // Grid to track placements
-
-//Draw the grid and any placed ships
-function drawGrid() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      ctx.strokeRect(
-        col * squareSize,
-        row * squareSize,
-        squareSize,
-        squareSize,
-      );
-      if (grid[row][col]) {
-        ctx.fillStyle = "gray"; // Color for filled squares
-        ctx.fillRect(
-          col * squareSize,
-          row * squareSize,
-          squareSize,
-          squareSize,
-        );
-      }
-    }
+function initCanvas() {
+  if (!canvas.getContext) {
+    console.error("Error: canvas not supported in this browser");
+    return;
   }
-  //Draw ships
-  ships.forEach((ship) => {
-    ship.tiles.forEach((tile) => {
-      ctx.fillStyle = "gray";
-      ctx.fillRect(
-        tile.col * squareSize,
-        tile.row * squareSize,
-        squareSize,
-        squareSize,
-      );
-    });
-  });
+
+  CTX = canvas.getContext("2d");
+
+  // start the game loop
+  LAST_FRAME_TIME = new Date().getTime();
+  gameIntervalId = setInterval(() => gameloop(), 1 / FPS);
 }
 
-//Listens for clicks then places a "ship tile"
-canvas.addEventListener("click", (e) => {
-  if (currentShipIndex >= ships.length) return; // No more ships to place
+// all position updates, frame updates should happen here (no draws)
+function update() {
+  updateWaves();
+  cursor.update();
 
-  const x = e.offsetX;
-  const y = e.offsetY;
-  const row = Math.floor(y / squareSize);
-  const col = Math.floor(x / squareSize);
+  LAST_FRAME_TIME = new Date().getTime();
+}
 
-  let currentShip = ships[currentShipIndex];
+// all drawing should happen here
+function draw() {
+  // draw background
+  CTX.save();
+  CTX.fillStyle = BACKGROUND_COL;
+  CTX.fillRect(0, 0, canvas.width, canvas.height);
+  CTX.restore();
 
-  //Checks if the square is already occupied or not
-  if (grid[row][col]) return;
+  playerBoard.draw();
+  drawShotBoard();
+  drawWaves();
 
-  //This checks if there is enough tiles left to place
-  if (currentShip.tiles.length < currentShip.size) {
-    currentShip.tiles.push({ row, col });
-    grid[row][col] = true;
+  ships.forEach((ship) => {
+    ship.draw();
+  });
+  ui.draw();
+  cursor.draw();
+}
+
+function gameloop() {
+  if (!gameRunning) {
+    return;
   }
 
-  if (currentShip.tiles.length === currentShip.size) {
-    currentShip.placed = true;
-    currentShipIndex++;
-    if (currentShipIndex < ships.length) {
-      document.getElementById("status").textContent =
-        `Place your ${ships[currentShipIndex].size}-sized ship...`;
-    } else {
-      document.getElementById("status").textContent =
-        "All ships placed! Locking the board.";
-      setTimeout(() => {
-        alert("Game started!");
-        // Here you can proceed to start the actual game logic
-      }, 1000);
+  draw();
+  update();
+}
+
+function drawShotBoard() {
+  CTX.save();
+  CTX.fillStyle = BOARD_COL;
+  const padding = 1;
+  for (let row = 0; row < BOARD_DIM; row++) {
+    for (let col = 0; col < BOARD_DIM; col++) {
+      CTX.fillRect(
+        SHOT_BOARD_OFFSET_X + row * SHOT_BOARD_UNIT_SIZE + padding,
+        SHOT_BOARD_OFFSET_Y + col * SHOT_BOARD_UNIT_SIZE + padding,
+        SHOT_BOARD_UNIT_SIZE - padding * 2,
+        SHOT_BOARD_UNIT_SIZE - padding * 2,
+      );
     }
   }
-  drawGrid();
-});
 
-// Initial drawing of the grid
-drawGrid();
+  CTX.restore();
+}
+
+function drawWaves() {
+  for (let i = 0; i < waves.length; i++) {
+    const { x, y, img } = waves[i];
+    CTX.drawImage(img, x, y);
+  }
+}
+
+function updateWaves() {
+  // move waves from top left to bottom right
+  for (let i = 0; i < waves.length; i++) {
+    waves[i].x += WAVE_SPEED * getDeltaTime();
+    waves[i].y += WAVE_SPEED * getDeltaTime();
+
+    // if out of bounds, remove
+    if (waves[i].x > canvas.width && waves[i].y > canvas.height) {
+      let temp = waves[i];
+      waves[i] = waves[waves.length - 1];
+      waves[waves.length - 1] = temp;
+
+      waves.pop();
+    }
+  }
+}
+
+const waveIntervalId = setInterval(
+  () => {
+    let img = wavesImgs[Math.ceil(Math.random() * 100) % wavesImgs.length];
+    waves.push({
+      x: 0 - Math.random() * 500 - img.width,
+      y: 0 - Math.random() * 500 - img.height,
+      img: img,
+    });
+  },
+  Math.max(Math.random() * 4000, 2000),
+);

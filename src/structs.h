@@ -19,6 +19,7 @@ struct {
   header headers[MAX_HEADERS];
   int header_count;
   char *body;
+  int body_len;
 } typedef http_response;
 
 struct {

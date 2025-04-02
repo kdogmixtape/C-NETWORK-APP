@@ -1,4 +1,6 @@
 #include "game.h"
+#include "defs.h"
+#include <stdio.h>
 
 void validate_board(uint64_t *ships, game_data *gameData)
 {
@@ -35,4 +37,18 @@ bool check_game_over(game_data *gameData)
   return FALSE;
 }
 
+int parse_game_msg(unsigned char ws_data[126])
+{
+  int opcode = ws_data[0] & 0xF0 >> 4;
 
+  switch (opcode) {
+  case GAME_MSG_BOARD_SETUP:
+    printf("Board setup game message received\n");
+    break;
+    // add more here for other msg types (shot, resign, etc)
+  default:
+    printf("Unrecognized game msg\n");
+    break;
+  }
+  return opcode;
+}
