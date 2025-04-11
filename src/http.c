@@ -1,4 +1,5 @@
 #include "http.h"
+#include <stdio.h>
 
 extern int num_conns;
 
@@ -28,9 +29,9 @@ char *get_form_val(client *conn, char *key)
 char *get_mime_type(const char *filename)
 {
   char command[64];
+  // TODO: vulnerable to command injection... add checks against valid options
   snprintf(command, sizeof(command), "file --mime-type -b %s", filename);
   FILE *fp = popen(command, "r");
-
   if (fp == NULL) {
     perror("popen failed");
     return NULL;
@@ -45,13 +46,10 @@ char *get_mime_type(const char *filename)
     }
 
     mime_type[i] = (char)c;
-
-    // Remove trailing newline character from the MIME type
   }
-  printf("MIME type: %s\n", mime_type);
   mime_type[i - 1] = '\0';
 
-  fclose(fp);
+  pclose(fp);
   return mime_type;
 }
 
@@ -238,11 +236,10 @@ char *http_res_tostr(http_response *res, int* res_len)
     // must use memcpy because of possible null bytes in body data
     memcpy(response + nwritten, res->body, res->body_len);
     nwritten += res->body_len;
-    nwritten += sprintf(response + nwritten, "\r\n\r\n");
   }
 
   response[++nwritten] = '\0';
-  *res_len = nwritten;
+  *res_len = nwritten - 1;
   return response;
 }
 
@@ -255,9 +252,10 @@ int send_http_redirect(int fd, char *url)
   int res_len = 0;
   char *response = http_res_tostr(res, &res_len);
   int n = write(fd, response, res_len);
-  printf("--- Sent %d byte Response ---\n%s\n", n, response);
+  printf("--- Sent %d byte Response (of len %d) ---\n%s\n", n, res_len, response);
 
   free(response);
+  free(res);
   return 0;
 }
 
@@ -281,7 +279,7 @@ int send_http_response(int fd, int status_code, char *message, char *content,
   int res_len = 0;
   char *response = http_res_tostr(res, &res_len);
   int n = write(fd, response, res_len);
-  printf("--- Sent %d byte Response ---\n%s\n", n, response);
+  printf("--- Sent %d byte Response (of len %d) ---\n%s\n", n, res_len, res->version_line);
 
   free(response);
   free(res);
@@ -290,21 +288,27 @@ int send_http_response(int fd, int status_code, char *message, char *content,
 
 int parse_http_request(client *conn)
 {
-  char *buf = malloc(2048);
-  bzero(buf, 2048);
-  size_t nread = read(conn->fd, buf, 2048);
-  if (nread == -1) {
-    perror("Error reading request");
+  if (conn->fd < 0) {
+    fprintf(stderr, "Error reading request: Bad file desc %d", conn->fd);
     return 1;
   }
-  // (because of io multiplexing)
-  printf("Received request: %s\n", buf);
+
+  char *buf = malloc(MAX_REQUEST_SIZE);
+  bzero(buf, MAX_REQUEST_SIZE);
+  
+  size_t nread = read(conn->fd, buf, MAX_REQUEST_SIZE);
+  if (nread == -1) {
+    perror("Error reading request");
+    return 2;
+  }
+
+  //printf("Received request: %s\n", buf);
 
   // open buffer for parsing headers
   FILE *stream = fmemopen(buf, nread, "r");
   if (stream == NULL) {
     perror("Error opening client stream");
-    return 2;
+    return 3;
   }
 
   conn->header_count = 0;
@@ -357,5 +361,7 @@ int parse_http_request(client *conn)
   fclose(stream); // Must close stream first
   free(buf);
   // free(line);
+
+  printf("Received request: %s %s\n", conn->method, conn->path);
   return 0;
 }

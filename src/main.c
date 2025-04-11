@@ -122,6 +122,7 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
 
   int result = route_request(newClient);
   if (result == 0) { // if 0, request was handled and can be closed
+    close(newClient->fd);
     free(newClient);
     return NULL;
   }
@@ -205,20 +206,14 @@ void process_clients(int sockfd)
           clients[i] = NULL;
         }
         else {
+          char *message = "Hello from server";
           int game_msg_opcode;
           switch (frame->opcode) {
           case OP_TEXT: // for testing
-            printf("data frame message: ");
-            for (int i = 0; i < frame->msg_len; i++) {
-              char val = frame->message[i] ^ frame->mask[i % 4];
-              printf("%c", val);
-            }
-            printf("\n");
-            char message[] = "Hello from server";
             send_ws_message(clients[i], message, strlen(message));
             break;
           case OP_BIN: // for game messages
-            game_msg_opcode = parse_game_msg(frame->message);
+            game_msg_opcode = handle_game_msg(frame->message, clients[i]);
             printf("Game msg opcode: %d\n", game_msg_opcode);
             break;
           case OP_PING:

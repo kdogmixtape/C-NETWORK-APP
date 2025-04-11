@@ -37,9 +37,9 @@ bool check_game_over(game_data *gameData)
   return FALSE;
 }
 
-int parse_game_msg(unsigned char ws_data[126])
+int handle_game_msg(unsigned char ws_data[MAX_WS_MSG_SIZE], client* conn)
 {
-  int opcode = ws_data[0] & 0xF0 >> 4;
+  int opcode = (ws_data[0] & 0xF0) >> 4;
 
   switch (opcode) {
   case GAME_MSG_BOARD_SETUP:

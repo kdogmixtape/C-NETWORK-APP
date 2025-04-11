@@ -12,31 +12,50 @@
         align-items: center;
         height: 100vh;
         margin: 0;
-        background-color: #5b6ee1;
+        background-color: white;
         font-family: Arial, sans-serif;
       }
       canvas {
         border: none;
       }
+
+      control-panel {
+        display: grid;
+        gap: 1rem;
+        padding: 1rem;
+      }
+
       #status {
         margin-top: 20px;
       }
     </style>
   </head>
   <body>
-    <canvas id="gridCanvas" width="1200" height="800"></canvas>
-    <div style="display: none">
-      <img id="cursor" src="cursor.png" alt="" />
-      <img id="battleships" src="battleships.png" alt="" />
-      <img id="waves1" src="waves1.png" alt="" />
-      <img id="waves2" src="waves2.png" alt="" />
+    <h2>Team5 Battleship</h2>
+    <div style="display: grid; grid-template-columns: auto auto">
+      <canvas id="gridCanvas" width="800" height="500"></canvas>
+      <div id="control-panel" class="control-panel">
+        <h3>Game Controls</h3>
+        <button onclick="handleReadyUp()">Ready Up</button>
+        <button onclick="handleConfirmPosition()">Confirm Position</button>
+        <button onclick="handleSendShot()">Fire!</button>
+        <button onclick="handleResign()">Resign</button>
+        <button onclick="handleLogout()">Logout</button>
+      </div>
     </div>
-    <script type="text/javascript" src="index.js"></script>
-    <script type="text/javascript" src="ui.js"></script>
-    <script type="text/javascript" src="cursor.js"></script>
-    <script type="text/javascript" src="ships.js"></script>
-    <script type="text/javascript" src="playerBoard.js"></script>
-    <script type="text/javascript" src="gameSetup.js"></script>
-    <script type="text/javascript" src="game.js"></script>
+    <div style="display: none">
+      <img id="cursor" src="/dashboard/cursor.png" alt="" />
+      <img id="battleships" src="/dashboard/battleships.png" alt="" />
+      <img id="waves1" src="/dashboard/waves1.png" alt="" />
+      <img id="waves2" src="/dashboard/waves2.png" alt="" />
+    </div>
+    <script type="text/javascript" src="/dashboard/index.js"></script>
+    <script type="text/javascript" src="/dashboard/controls.js"></script>
+    <script type="text/javascript" src="/dashboard/cursor.js"></script>
+    <script type="text/javascript" src="/dashboard/ships.js"></script>
+    <script type="text/javascript" src="/dashboard/playerBoard.js"></script>
+    <script type="text/javascript" src="/dashboard/gameSetup.js"></script>
+    <script type="text/javascript" src="/dashboard/game.js"></script>
+    <script type="text/javascript" src="/dashboard/waves.js"></script>
   </body>
 </html>

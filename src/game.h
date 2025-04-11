@@ -83,6 +83,6 @@ void validate_board(uint64_t *ships, game_data *gameData);
  */
 bool check_game_over(game_data *gameData);
 
-int parse_game_msg(unsigned char ws_data[126]);
+int handle_game_msg(unsigned char ws_data[126], client* conn);
 
 #endif

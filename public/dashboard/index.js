@@ -39,4 +39,4 @@ for (let i = 0; i < 8; i++) {
     message[i * 8 + j + 1] = board[i][j];
   }
 }
-message[0] = 0xf0;
+message[0] = 0x20;
