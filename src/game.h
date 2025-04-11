@@ -1,88 +1,95 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include <stdint.h>
-#include <assert.h>
 #include "defs.h"
 #include "structs.h"
+#include <assert.h>
+#include <stdint.h>
+
+#define P1 0
+#define P2 1
+#define bool int
+#define TRUE 1
+#define FALSE 0
+#define NUM_SHIPS 5 // 1a, 2a, 2b, 3a, 3b, 4
+
+struct {
+  uint64_t p1_board;
+  uint64_t p1_shot_board;
+  uint64_t p1_hit_board; // might need this to track hits specifically
+  uint64_t p1_ships[NUM_SHIPS];
+
+  uint64_t p2_board;
+  uint64_t p2_shot_board;
+  uint64_t p2_hit_board; 
+  uint64_t p2_ships[NUM_SHIPS];
+
+  int8_t winner; // default to -1
+
+  int player_turn; // default to 0 for player 1
+  int players[2]; // tracks player ids for quick lookup in clients
+
+  // other stuff we talked about here
+} typedef game_data;
 
 /**
- * Validates ship placement before the start of a game
- * currently set to work with ships of all sizes
- *
- * Valid 7x5 Board (for brevity) view - **not in memory**:
- * 0 0 0 0 0 0 0
- * 2 1 0 3 3 3 0
- * 2 0 2 0 0 0 0
- * 0 0 2 4 4 4 4
- * 1 0 0 0 0 0 0
- *
- * Board in memory:
- * 0 0 0 0 0 0 0
- * 1 1 0 1 1 1 0
- * 1 0 1 0 0 0 0
- * 0 0 1 1 1 1 1
- * 1 0 0 0 0 0 0
- *
- * Each ship is also an integer storing positions on the grid:
- * Ship 1a:
- * 0 0 0 0 0 0 0
- * 0 1 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- *
- * Ship 2:
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 1 0 0 0 0
- * 0 0 1 0 0 0 0
- * 0 0 0 0 0 0 0
- *
- * Ship 4:
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 0 1 1 1 1
- * 0 0 0 0 0 0 0
- *
- * This makes it so that when we hit a ship on the board, we can clear the bit
- * we hit in the corresponding ship and check it against 0. if 0, we know we
- * sunk a ship.
- *
- * To validate the board, we can AND them and check against 0 (all combinations)
- * if (ship4 & ship1a != 0) {
- *   Invalid position for ship1a
- * }
- *
- * We'll also need to make sure you cant wrap your ship around the board:
- *
- * Ship 4 (Invalid):
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 0 0 0 0 0
- * 0 0 0 0 1 1 1
- * 1 0 0 0 0 0 0
- *
- * And that you make longer ships the correct length, like ship 4 should have 4
- * 1's together
- *
- * @param int array with ship locations. Each integer should be the same
- * precision as the board (64 bits for a 8x8 board)
+ * Below are some of the opcodes for our game
+ * protocol (subject to change). Server and client
+ * will send messages back and forth with information
+ * of these types
  */
-void validate_board(uint64_t *ships, game_data *gameData);
+
+enum GAME_MSG {
+  // client -> server (put me in a game)
+  GAME_MSG_READY,
+  // in case of disconnect or refresh (includes all game data needed client-side)
+  GAME_MSG_SYNC,
+  // client -> server (my board is ready, validate it)
+  GAME_MSG_BOARD_SETUP,
+  // server -> client (all)
+  GAME_MSG_TURN,
+  // client -> server (x, y)
+  GAME_MSG_SHOT,
+  GAME_MSG_RESIGN,
+  // general error
+  GAME_MSG_ERROR,
+  GAME_MSG_CLOSE,
+  // are we still in active game?
+  GAME_MSG_PING,
+  // game still active
+  GAME_MSG_PONG
+};
 
 /**
- * Checks each player_board against their opponent's hit_board to
- * see if the game has been won (all ships are sunk)
- * 
- * If the game is won, it sets the winner to 0 or 1 and returns TRUE.
- * If the game is not won, returns FALSE and winner remains -1 (default)
+ * Parses and handles game message according to the type (GAME_MSG enum above)
  *
- * @param game_data struct at any point in the game
+ * General packet structure:
+ *
+ * 4 bits - opcode
+ * _ bits (defined by opcode) - args
+ * ... more args
+ * ____ ____ ____
+ * opcd arg1 arg2
+ *
+ * Example from client: Shot packet with coordinates x=2, y=3
+ *
+ * 4 bits - opcode
+ * 4 bits - x coord
+ * 4 bits - y coord
+ * 1 bit - hit true or false
+ *
+ * 0101 010 011 0
+ *
+ * Example response to all clients: hit
+ *
+ * 4 bits - opcode
+ * 4 bits - x coord
+ * 4 bits - y coord
+ * 1 bit - hit true or false
+ *
+ * 0101 010 011 1
+ *
  */
-bool check_game_over(game_data *gameData);
-
-int handle_game_msg(unsigned char ws_data[126], client* conn);
+int handle_game_msg(unsigned char ws_data[126], client *conn);
 
 #endif
