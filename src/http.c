@@ -1,6 +1,7 @@
 #include "http.h"
-
-extern int num_conns;
+#include "defs.h"
+#include <stdio.h>
+#include <string.h>
 
 char *get_header_val(client *conn, char *key)
 {
@@ -11,6 +12,44 @@ char *get_header_val(client *conn, char *key)
   }
 
   return NULL;
+}
+
+char *get_cookie_val(client *conn, char *key)
+{
+  // retrieve the cookie header
+  char *cookies = get_header_val(conn, "Cookie");
+
+  char *name = malloc(strlen(key) + 1);
+  char *value = malloc(MAX_COOKIE_VAL_SIZE);
+  bzero(name, strlen(key) + 1);
+  bzero(value, MAX_COOKIE_VAL_SIZE);
+
+  for (;;) {
+    char *equal_idx = strstr(cookies, "=");
+    char *colon_idx = strstr(cookies, ";");
+
+    // if no "=" then we've parsed the last cookie
+    if (equal_idx == NULL) {
+      return NULL;
+    }
+
+    *equal_idx = '\0';
+    if (colon_idx != NULL) {
+      *colon_idx = '\0';
+    }
+
+    strncpy(name, cookies, strlen(key));
+
+    if (strcmp(name, key) == 0) {
+      strncpy(value, equal_idx + 1, MAX_COOKIE_VAL_SIZE);
+      break;
+    }
+
+    cookies = colon_idx + 1;
+  }
+
+  free(name);
+  return value;
 }
 
 char *get_form_val(client *conn, char *key)
@@ -52,9 +91,26 @@ char *get_mime_type(const char *filename)
   return mime_type;
 }
 
+int validate_request(client *conn)
+{
+  char *auth_cookie = get_cookie_val(conn, "c-game-auth");
+  printf("Cookie: %s\n", auth_cookie);
+  if (auth_cookie == NULL || strcmp(auth_cookie, "") == 0) {
+    return 1;
+  }
+
+  // decrypt b64
+  // encrypt new hash with data
+  // check hashes
+
+  return 0;
+}
+
 int route_request(client *conn)
 {
-  if (strcmp(conn->method, "GET") == 0) {
+  http_response *res;
+  switch (conn->method) {
+  case GET:
     if (strcmp(conn->path, "/ws") == 0) {
       upgrade_conn(conn);
       return 1; // tell the caller we have a websocket connection
@@ -70,14 +126,24 @@ int route_request(client *conn)
       }
       else if (strstr(conn->path, ".") ==
                NULL) { // handle paths that dont end in slash
-        printf("adding /index.html to path");
         strcat(path, "/index.html");
+      }
+
+      // User must be authorized to access dashboard
+      if (strcmp(path, "public/dashboard/index.html") == 0) {
+        int err = validate_request(conn);
+        if (err != 0) {
+          res = build_http_response(302, "Found", NULL, 0, NULL);
+          add_header(res, "Location", "/"); // send back to login page
+          send_http_response(conn->fd, res);
+        }
       }
 
       FILE *asset_path = fopen(path, "r");
       if (asset_path == NULL) {
         printf("Error opening file: %s\n", path);
-        send_http_response(conn->fd, NOT_FOUND, "Not Found", NULL, 0, NULL);
+        res = build_http_response(NOT_FOUND, "Not Found", NULL, 0, NULL);
+        send_http_response(conn->fd, res);
         return 0;
       }
 
@@ -91,42 +157,50 @@ int route_request(client *conn)
       char *content_type = get_mime_type(path);
       if (content_type == NULL) {
         printf("Error opening file: %s\n", path);
-        send_http_response(conn->fd, INTERNAL_SERVER_ERROR,
-                           "Internal Server Error", NULL, 0, NULL);
+        res = build_http_response(INTERNAL_SERVER_ERROR,
+                                  "Internal Server Error", NULL, 0, NULL);
+        send_http_response(conn->fd, res);
         return 0;
       }
 
-      send_http_response(conn->fd, OK, "OK", asset_buffer, num_read,
-                         content_type);
+      res = build_http_response(OK, "OK", asset_buffer, num_read, content_type);
+      send_http_response(conn->fd, res);
       free(content_type);
       free(asset_buffer);
     }
-  }
-  else if (strcmp(conn->method, "POST") == 0) {
-    if (strcmp(conn->path, "/") == 0) {
+    break;
+  case POST:
+    if (strcmp(conn->path, "/") == 0 ||
+        strcmp(conn->path, "/index.html") == 0) {
       // authenticate
       char *username = get_form_val(conn, "username");
       char *password = get_form_val(conn, "password");
 
       printf("Credentials: %s %s\n", username, password);
       if (username == NULL || password == NULL) {
-        send_http_response(conn->fd, 401, "Unauthorized", NULL, 0, NULL);
+        res = build_http_response(401, "Invalid Credentials", NULL, 0, NULL);
+        send_http_response(conn->fd, res);
         return 0;
       }
       if (strlen(username) <= 0 || strlen(password) <= 0) {
-        send_http_response(conn->fd, 401, "Unauthorized", NULL, 0, NULL);
+        res = build_http_response(401, "Invalid Credentials", NULL, 0, NULL);
+        send_http_response(conn->fd, res);
         return 0;
       }
 
       // set cookie
-      send_http_redirect(conn->fd, "/dashboard");
+      res = build_http_response(302, "Found", NULL, 0, NULL);
+
+      add_header(res, "Location", "/dashboard");
+      add_header(res, "Set-Cookie", "c-game-auth=1234; Secure; HttpOnly");
+      send_http_response(conn->fd, res);
       printf("logged in!\n");
-      return 0;
     }
-  }
-  else {
-    send_http_response(conn->fd, METHOD_NOT_ALLOWED, "Method Not Allowed", NULL,
-                       0, NULL);
+  default:
+    res = build_http_response(METHOD_NOT_ALLOWED, "Method Not Allowed", NULL, 0,
+                              NULL);
+    send_http_response(conn->fd, res);
+    break;
   }
 
   return 0;
@@ -192,11 +266,27 @@ void add_header(http_response *response, char *key, char *value)
   response->header_count++;
 }
 
-http_response *build_http_response(int status_code, char *message)
+http_response *build_http_response(int status_code, char *message,
+                                   char *content, int content_len,
+                                   char *content_type)
 {
   http_response *res = malloc(sizeof(http_response));
   bzero(res, sizeof(http_response));
   sprintf(res->version_line, "HTTP/1.1 %d %s", status_code, message);
+
+  char *content_len_str = malloc(20); // long between 2 and 20 bytes
+
+  if (content != NULL && content_type != NULL) {
+    res->body = content;
+    res->body_len = content_len;
+
+    sprintf(content_len_str, "%d", content_len);
+    add_header(res, "Content-Type", content_type);
+    add_header(res, "Content-Length", content_len_str);
+  }
+
+  add_header(res, "Accept-Ranges", "bytes");
+  add_header(res, "Connection", "close");
   return res;
 }
 
@@ -215,7 +305,7 @@ int send_ws_upgrade_response(int fd, char *encoded_key)
 }
 
 // helper for converting response struct to a string with headers and data
-char *http_res_tostr(http_response *res, int* res_len)
+char *http_res_tostr(http_response *res, int *res_len)
 {
   char *response = malloc(MAX_RESPONSE_SIZE);
   bzero(response, MAX_RESPONSE_SIZE);
@@ -242,43 +332,13 @@ char *http_res_tostr(http_response *res, int* res_len)
   return response;
 }
 
-int send_http_redirect(int fd, char *url)
+int send_http_response(int fd, http_response *res)
 {
-  http_response *res = build_http_response(302, "Found");
-
-  add_header(res, "Location", url);
-  add_header(res, "Connection", "close");
   int res_len = 0;
   char *response = http_res_tostr(res, &res_len);
   int n = write(fd, response, res_len);
-  printf("--- Sent %d byte Response (of len %d) ---\n%s\n", n, res_len, response);
-
-  free(response);
-  free(res);
-  return 0;
-}
-
-int send_http_response(int fd, int status_code, char *message, char *content,
-                       int content_len, char *content_type)
-{
-  http_response *res = build_http_response(status_code, message);
-  char *content_len_str = malloc(20); // long between 2 and 20 bytes
-
-  res->body = content;
-  res->body_len = content_len;
-
-  if (content != NULL && content_type != NULL) {
-    sprintf(content_len_str, "%d", content_len);
-    add_header(res, "Content-Type", content_type);
-    add_header(res, "Content-Length", content_len_str);
-  }
-
-  add_header(res, "Accept-Ranges", "bytes");
-  add_header(res, "Connection", "close");
-  int res_len = 0;
-  char *response = http_res_tostr(res, &res_len);
-  int n = write(fd, response, res_len);
-  printf("--- Sent %d byte Response (of len %d) ---\n%s\n", n, res_len, res->version_line);
+  printf("--- Sent %d byte Response (of len %d) ---\n%s\n", n, res_len,
+         res->version_line);
 
   free(response);
   free(res);
@@ -294,14 +354,14 @@ int parse_http_request(client *conn)
 
   char *buf = malloc(MAX_REQUEST_SIZE);
   bzero(buf, MAX_REQUEST_SIZE);
-  
+
   size_t nread = read(conn->fd, buf, MAX_REQUEST_SIZE);
   if (nread == -1) {
     perror("Error reading request");
     return 2;
   }
 
-  //printf("Received request: %s\n", buf);
+  // printf("Received request: %s\n", buf);
 
   // open buffer for parsing headers
   FILE *stream = fmemopen(buf, nread, "r");
@@ -314,9 +374,20 @@ int parse_http_request(client *conn)
   conn->field_count = 0;
 
   char *line;
+  char *method = malloc(5); // big enough for "POST\0"
   size_t line_len = 0;
   getline(&line, &line_len, stream);
-  sscanf(line, "%s %s", conn->method, conn->path);
+  sscanf(line, "%s %s", method, conn->path);
+
+  if (strcmp(method, "GET") == 0) {
+    conn->method = GET;
+  }
+  else if (strcmp(method, "POST") == 0) {
+    conn->method = POST;
+  }
+  else {
+    conn->method = -1;
+  }
 
   // read headers into memory
   // if read is not greater than 1 then we have a double new line
@@ -329,7 +400,7 @@ int parse_http_request(client *conn)
   }
 
   // if post, we want to parse the form
-  if (strcmp(conn->method, "POST") == 0) {
+  if (conn->method == POST) {
     // skip extra new line
     getline(&line, &line_len, stream);
     // form should be encoded into 1 line
@@ -339,28 +410,30 @@ int parse_http_request(client *conn)
       form_field *f = &(conn->form[conn->field_count]);
       char *equal_idx = strstr(line, "=");
       char *and_idx = strstr(line, "&");
+
       // end string at equals for parsing
+      // if no =, we've parsed the last field
+      if (equal_idx == NULL) {
+        break;
+      }
       *equal_idx = '\0';
       if (and_idx != NULL) {
         *and_idx = '\0';
       }
       strncpy(f->key, line, MAX_FORM_KEY_SIZE);
-      strncpy(f->value, equal_idx + 1, MAX_FORM_KEY_SIZE);
+      strncpy(f->value, equal_idx + 1, MAX_FORM_VAL_SIZE);
       conn->field_count++;
 
-      // if no &, we've parsed the last field
-      if (and_idx == NULL) {
-        break;
-      }
       // else move to next value
       line = and_idx + 1;
     }
   }
 
+  printf("Received request: %s %s\n", method, conn->path);
+
   fclose(stream); // Must close stream first
   free(buf);
+  free(method);
   // free(line);
-
-  printf("Received request: %s %s\n", conn->method, conn->path);
   return 0;
 }

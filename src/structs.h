@@ -25,7 +25,7 @@ struct {
 struct {
   int fd;
   char ip[INET_ADDRSTRLEN];
-  char method[8]; // big enough for UPDATE + \0
+  http_method method;
   char path[64];
   header headers[MAX_HEADERS];
   int header_count;
