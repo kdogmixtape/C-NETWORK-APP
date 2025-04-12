@@ -81,13 +81,13 @@ int parse_validate_board(unsigned char *board_str, uint64_t ships[NUM_SHIPS],
 {
   // board_str must be 64 bytes because 8x8 board size
   for (int i = 0; i < 64; i++) {
-    if (board_str[i] < 0 || board_str[i] > NUM_SHIPS - 1) {
-      printf("Invalid board value %x at %d", board_str[i], i);
+    if (board_str[i] < 0 || board_str[i] > NUM_SHIPS) {
+      printf("Invalid board value %x at %d\n", board_str[i], i);
       return 1;
     }
     else if (board_str[i] > 0) {
       // flip bit of current position in the board and associated ship
-      ships[board_str[i]] |= (1 << i);
+      ships[board_str[i] - 1] |= (1 << i);
       *board |= (1 << i);
     }
   }
@@ -100,7 +100,7 @@ int parse_validate_board(unsigned char *board_str, uint64_t ships[NUM_SHIPS],
   for (int i = 0; i < NUM_SHIPS; i++) {
     for (int j = 0; j < 7; j++) {
       if ((ships[i] & edge_masks[j]) == edge_masks[j]) {
-        printf("Ship wrapping detected for ship %d, edge %lx", i,
+        printf("Ship wrapping detected for ship %d, edge %lx\n", i,
                edge_masks[j]);
         return 2;
       }
@@ -243,7 +243,6 @@ int handle_game_msg(unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn,
     unsigned char *board_str = ws_data + 1;
     int err = parse_validate_board(board_str, gd->p1_ships, &gd->p1_board);
     if (err != 0) {
-      printf("Invalid board\n");
       send_game_msg(GAME_MSG_ERROR, "Invalid Board", sizeof("Invalid Board"),
                     conn->player_idx, gd);
       return 0;

@@ -9,7 +9,34 @@ function handleLogout() {
   window.location.href = "/";
 }
 
-function handleConfirmPosition() {}
+function handleConfirmPosition() {
+  if (websocket.readyState != WebSocket.OPEN) {
+    console.log("Error: connection to server failed");
+    return;
+  }
+
+  let board = [
+    ["0", "0", "1", "0", "0", "0", "0", "0"],
+    ["0", "0", "0", "2", "2", "0", "0", "0"],
+    ["0", "0", "0", "0", "0", "6", "0", "0"],
+    ["0", "0", "0", "0", "0", "6", "0", "0"],
+    ["0", "0", "0", "0", "0", "6", "0", "0"],
+    ["3", "3", "0", "0", "0", "6", "0", "0"],
+    ["0", "0", "5", "5", "5", "0", "0", "0"],
+    ["0", "0", "0", "0", "0", "4", "4", "4"],
+  ];
+
+  let message = new Uint8Array(65);
+
+  for (let i = 0; i < 8; i++) {
+    for (let j = 0; j < 8; j++) {
+      message[i * 8 + j + 1] = board[i][j];
+    }
+  }
+  message[0] = 0x20;
+
+  websocket.send(message);
+}
 
 function handleResign() {}
 
