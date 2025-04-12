@@ -1,5 +1,4 @@
 #include "ws.h"
-#include "defs.h"
 
 void send_ws_close(client *conn)
 {
@@ -16,14 +15,26 @@ void send_ws_close(client *conn)
   printf("sent %zu bytes\n", nsent);
 }
 
+unsigned char* ws_frame_to_bytes(ws_frame* frame, int* len) {
+  unsigned char* frame_bytes = malloc(MAX_WS_FRAME_SIZE);
+
+  frame_bytes[0] = 0x80 | frame->opcode;  // fin = 1
+  frame_bytes[1] = frame->msg_len & 0x7f; // length of data (mask bit always 0) 0111 1111
+
+  memcpy(frame_bytes + 2, frame->msg, frame->msg_len);
+  *len = frame->msg_len + 2;
+
+  return frame_bytes;
+}
+
 void send_ws_message(client *conn, char *message, int n)
 {
-  if (n > 125) {
+  if (n > MAX_WS_MSG_SIZE) {
     fprintf(stderr, "Error sending ws data: data size %d too large\n", n);
     return;
   }
 
-  unsigned char frame[125] = {
+  unsigned char frame[MAX_WS_MSG_SIZE] = {
       0}; // 2 bytes for header, max 125 bytes for payload
 
   frame[0] = 0x81;     // fin = 1, opcode = 1 for text
@@ -60,8 +71,8 @@ int receive_ws_data(ws_frame *dst_frame, client *conn)
   // Unmask message from client
   printf("data frame message: ");
   for (int i = 0; i < dst_frame->msg_len && i < MAX_WS_MSG_SIZE; i++) {
-    dst_frame->message[i] = dst_frame->buf[i + 6] ^ dst_frame->mask[i % 4];
-    printf("%02x ", dst_frame->message[i]);
+    dst_frame->msg[i] = dst_frame->buf[i + 6] ^ dst_frame->mask[i % 4];
+    printf("%02x ", dst_frame->msg[i]);
   }
   printf("\n");
 

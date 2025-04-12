@@ -2,6 +2,7 @@
 #define HTTP_H
 
 #include "structs.h"
+#include <stdio.h>
 
 /*
  * Finds the value of a request header by key

@@ -33,6 +33,8 @@ struct {
   int field_count;
   struct sockaddr_in cli_addr;
   socklen_t cli_addr_len;
+  int game_id;
+  int player_idx;
 } typedef client;
 
 struct {
@@ -40,7 +42,7 @@ struct {
   int msg_len;
   unsigned char buf[MAX_WS_FRAME_SIZE];
   unsigned char mask[4];
-  unsigned char message[MAX_WS_MSG_SIZE];
+  unsigned char msg[MAX_WS_MSG_SIZE];
 } typedef ws_frame;
 
 #endif

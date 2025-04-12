@@ -6,14 +6,12 @@
  *  To run: ./main
  */
 
-#include "defs.h"
-#include "game.h"
 #include "http.h"
-#include "structs.h"
-#include "ws.h"
+#include "game.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <sys/select.h>
 
 /*
  * Prepares a socket for use within the program.
@@ -108,22 +106,22 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
     exit(EXIT_FAILURE);
   }
 
-  client *newClient = malloc(sizeof(client));
-  newClient->cli_addr_len = sizeof(newClient->cli_addr);
-  newClient->fd =
-      accept(sockfd, (SA *)&(newClient->cli_addr), &(newClient->cli_addr_len));
+  client *new_client = malloc(sizeof(client));
+  new_client->cli_addr_len = sizeof(new_client->cli_addr);
+  new_client->fd =
+      accept(sockfd, (SA *)&(new_client->cli_addr), &(new_client->cli_addr_len));
 
   // store ip str
-  memcpy(newClient->ip, inet_ntoa(newClient->cli_addr.sin_addr),
-         sizeof(newClient->ip));
+  memcpy(new_client->ip, inet_ntoa(new_client->cli_addr.sin_addr),
+         sizeof(new_client->ip));
 
   // handle http
-  parse_http_request(newClient);
+  parse_http_request(new_client);
 
-  int result = route_request(newClient);
+  int result = route_request(new_client);
   if (result == 0) { // if 0, request was handled and can be closed
-    close(newClient->fd);
-    free(newClient);
+    close(new_client->fd);
+    free(new_client);
     return NULL;
   }
 
@@ -131,7 +129,7 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
   while (clients[i] != NULL && clients[i]->fd > 0 && i < FD_SETSIZE)
     i++;
   if (i < FD_SETSIZE) {
-    clients[i] = newClient;
+    clients[i] = new_client;
   }
   else {
     fprintf(stderr, "Too many clients!\n");
@@ -141,9 +139,9 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
   if (i > *maxi)
     *maxi = i;
   printf("Connection accepted:\n\tIndex:%d\n\tFile Desc: %d\n", i,
-         newClient->fd);
+         new_client->fd);
 
-  return newClient;
+  return new_client;
 }
 
 void close_client(client *client, fd_set *allset)
@@ -165,8 +163,8 @@ void process_clients(int sockfd)
   int nready;
   client *clients[FD_SETSIZE];
   fd_set rset, allset;
-
-  printf("The number of clients = %d\n", FD_SETSIZE);
+  game_data *games[MAX_GAMES];
+  int num_games = 0;
 
   maxfd = sockfd;
   maxi = -1;
@@ -181,13 +179,18 @@ void process_clients(int sockfd)
     // handle new connections
     if (FD_ISSET(sockfd, &rset)) {
       // setup new client
-      client *newClient = accept_conn(sockfd, clients, &maxi);
+      client *new_client = accept_conn(sockfd, clients, &maxi);
 
       // if websocket (persistent), add to multiplexing set
-      if (newClient != NULL) {
-        FD_SET(newClient->fd, &allset);
-        if (newClient->fd > maxfd)
-          maxfd = newClient->fd;
+      if (new_client != NULL) {
+        
+        // for testing, add to a game with self
+        games[num_games] = start_new_game(num_games, new_client, new_client);
+        num_games++;
+
+        FD_SET(new_client->fd, &allset);
+        if (new_client->fd > maxfd)
+          maxfd = new_client->fd;
         if (--nready <= 0)
           continue; // no more readable descriptors
       }
@@ -213,7 +216,8 @@ void process_clients(int sockfd)
             send_ws_message(clients[i], message, strlen(message));
             break;
           case OP_BIN: // for game messages
-            game_msg_opcode = handle_game_msg(frame->message, clients[i]);
+            game_msg_opcode = handle_game_msg(frame->msg, clients[i],
+                                              games[clients[i]->game_id]);
             printf("Game msg opcode: %d\n", game_msg_opcode);
             break;
           case OP_PING:

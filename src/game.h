@@ -2,7 +2,7 @@
 #define GAME_H
 
 #include "defs.h"
-#include "structs.h"
+#include "ws.h"
 #include <assert.h>
 #include <stdint.h>
 
@@ -11,7 +11,8 @@
 #define bool int
 #define TRUE 1
 #define FALSE 0
-#define NUM_SHIPS 5 // 1a, 2a, 2b, 3a, 3b, 4
+#define NUM_SHIPS 6 // 1a, 2a, 2b, 3a, 3b, 4
+#define MAX_GAMES 20
 
 struct {
   uint64_t p1_board;
@@ -21,13 +22,13 @@ struct {
 
   uint64_t p2_board;
   uint64_t p2_shot_board;
-  uint64_t p2_hit_board; 
+  uint64_t p2_hit_board;
   uint64_t p2_ships[NUM_SHIPS];
 
   int8_t winner; // default to -1
+  client *players[2];
 
   int player_turn; // default to 0 for player 1
-  int players[2]; // tracks player ids for quick lookup in clients
 
   // other stuff we talked about here
 } typedef game_data;
@@ -39,10 +40,11 @@ struct {
  * of these types
  */
 
-enum GAME_MSG {
+enum GAME_MSG_OP {
   // client -> server (put me in a game)
   GAME_MSG_READY,
-  // in case of disconnect or refresh (includes all game data needed client-side)
+  // in case of disconnect or refresh (includes all game data needed
+  // client-side)
   GAME_MSG_SYNC,
   // client -> server (my board is ready, validate it)
   GAME_MSG_BOARD_SETUP,
@@ -58,7 +60,7 @@ enum GAME_MSG {
   GAME_MSG_PING,
   // game still active
   GAME_MSG_PONG
-};
+} typedef game_msg_op;
 
 /**
  * Parses and handles game message according to the type (GAME_MSG enum above)
@@ -90,6 +92,22 @@ enum GAME_MSG {
  * 0101 010 011 1
  *
  */
-int handle_game_msg(unsigned char ws_data[126], client *conn);
+int handle_game_msg(unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn,
+                    game_data *gd);
+
+/**
+ *  sends a game message using ws helpers using the params
+ *  specified in the game_msg struct. If player_idx is negative,
+ *  all players will be notified of the message
+ */
+int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
+                  game_data *gd);
+
+/*
+ * quick helper for creating a new game with players'
+ * client ids. Id's should be the index of the client
+ * struct in the clients list for quick O(1) access
+ */
+game_data *start_new_game(int idx, client *player1, client *player2);
 
 #endif

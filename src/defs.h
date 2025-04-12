@@ -19,8 +19,8 @@
 #define MAX_RESPONSE_FILE_SIZE 4096 * 4
 #define MAX_MIME_TYPE_LEN 32 
 
-#define MAX_WS_FRAME_SIZE 132 // header (2) + mask (4) + msg (126)
-#define MAX_WS_MSG_SIZE 126   // message at most 126 bytes
+#define MAX_WS_FRAME_SIZE 131 // header (2) + mask (4) + msg (125)
+#define MAX_WS_MSG_SIZE 125   // message at most 125 bytes
 
 #define WS_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 

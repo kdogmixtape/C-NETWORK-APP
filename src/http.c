@@ -1,5 +1,4 @@
 #include "http.h"
-#include <stdio.h>
 
 extern int num_conns;
 
