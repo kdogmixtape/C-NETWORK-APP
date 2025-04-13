@@ -360,14 +360,18 @@ int parse_http_request(client *conn)
     perror("Error reading request");
     return 2;
   }
+  else if (nread == 0) {
+    printf("Client closed the connection");
+    return 3;
+  }
 
-  // printf("Received request: %s\n", buf);
+  printf("--- Received request length: %ld ---\n%s\n", nread, buf);
 
   // open buffer for parsing headers
   FILE *stream = fmemopen(buf, nread, "r");
   if (stream == NULL) {
     perror("Error opening client stream");
-    return 3;
+    return 4;
   }
 
   conn->header_count = 0;
@@ -375,6 +379,8 @@ int parse_http_request(client *conn)
 
   char *line;
   char *method = malloc(5); // big enough for "POST\0"
+  bzero(method, 5);
+
   size_t line_len = 0;
   getline(&line, &line_len, stream);
   sscanf(line, "%s %s", method, conn->path);
@@ -429,7 +435,7 @@ int parse_http_request(client *conn)
     }
   }
 
-  printf("Received request: %s %s\n", method, conn->path);
+  //printf("Received request: %s %s\n", method, conn->path);
 
   fclose(stream); // Must close stream first
   free(buf);

@@ -129,7 +129,7 @@ int parse_validate_board(unsigned char *board_str, uint64_t ships[NUM_SHIPS],
       }
     }
     if (num_consecutive_bits != SHIP_LENGTHS[i]) {
-      printf("Invalid format or length for ship %d", i);
+      printf("Invalid format or length for ship %d\n", i);
       return 3;
     }
   }

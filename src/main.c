@@ -6,8 +6,8 @@
  *  To run: ./main
  */
 
-#include "http.h"
 #include "game.h"
+#include "http.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -31,9 +31,9 @@ client *accept_conn(int sockfd, client **clients, int *maxi);
 /*
  * Closes and deallocates a client struct
  * pre: client is an open connection and filled struct
- * post: client* is freed and socket is closed, removed from allset
+ * post: client* is freed and socket is closed, removed from io mult set
  */
-void close_client(client *client, fd_set *allset);
+void close_client(client **clients, int idx, fd_set *set);
 
 /*
  * Processes clients listening on the provided fd
@@ -107,23 +107,14 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
   }
 
   client *new_client = malloc(sizeof(client));
+  bzero(new_client, sizeof(client));
   new_client->cli_addr_len = sizeof(new_client->cli_addr);
-  new_client->fd =
-      accept(sockfd, (SA *)&(new_client->cli_addr), &(new_client->cli_addr_len));
+  new_client->fd = accept(sockfd, (SA *)&(new_client->cli_addr),
+                          &(new_client->cli_addr_len));
 
   // store ip str
   memcpy(new_client->ip, inet_ntoa(new_client->cli_addr.sin_addr),
          sizeof(new_client->ip));
-
-  // handle http
-  parse_http_request(new_client);
-
-  int result = route_request(new_client);
-  if (result == 0) { // if 0, request was handled and can be closed
-    close(new_client->fd);
-    free(new_client);
-    return NULL;
-  }
 
   int i = 0; // find an unused client to store the socket id
   while (clients[i] != NULL && clients[i]->fd > 0 && i < FD_SETSIZE)
@@ -133,7 +124,9 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
   }
   else {
     fprintf(stderr, "Too many clients!\n");
-    exit(EXIT_FAILURE);
+    close(new_client->fd);
+    free(new_client);
+    return NULL;
   }
 
   if (i > *maxi)
@@ -144,11 +137,12 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
   return new_client;
 }
 
-void close_client(client *client, fd_set *allset)
+void close_client(client **clients, int idx, fd_set *set)
 {
-  close(client->fd);
-  FD_CLR(client->fd, allset);
-  free(client);
+  close(clients[idx]->fd);
+  FD_CLR(clients[idx]->fd, set);
+  free(clients[idx]);
+  clients[idx] = NULL;
 }
 
 void process_clients(int sockfd)
@@ -160,38 +154,45 @@ void process_clients(int sockfd)
   }
 
   int i, maxi, maxfd;
-  int nready;
+  int nready_http, nready_ws;
   client *clients[FD_SETSIZE];
-  fd_set rset, allset;
+  fd_set rset, http_allset, ws_allset;
   game_data *games[MAX_GAMES];
   int num_games = 0;
 
   maxfd = sockfd;
   maxi = -1;
 
-  FD_ZERO(&allset);
-  FD_SET(sockfd, &allset);
+  FD_ZERO(&http_allset);
+  FD_ZERO(&ws_allset);
+  FD_SET(sockfd, &http_allset);
 
   for (;;) {
-    rset = allset;
-    nready = select(maxfd + 1, &rset, NULL, NULL, NULL);
+    rset = http_allset;
+    for (int i = 0; i <= maxfd; i++) {
+      if (FD_ISSET(i, &ws_allset)) {
+        FD_SET(i, &rset);
+      }
+    }
 
-    // handle new connections
+    nready_http = select(maxfd + 1, &rset, NULL, NULL, NULL);
+
+    // handle new http connections
     if (FD_ISSET(sockfd, &rset)) {
       // setup new client
       client *new_client = accept_conn(sockfd, clients, &maxi);
 
       // if websocket (persistent), add to multiplexing set
       if (new_client != NULL) {
-        
+
         // for testing, add to a game with self
         games[num_games] = start_new_game(num_games, new_client, new_client);
         num_games++;
 
-        FD_SET(new_client->fd, &allset);
+        FD_SET(new_client->fd, &http_allset);
         if (new_client->fd > maxfd)
           maxfd = new_client->fd;
-        if (--nready <= 0)
+        if (--nready_http <= 0)
           continue; // no more readable descriptors
       }
     }
@@ -201,44 +202,68 @@ void process_clients(int sockfd)
       if (clients[i] == NULL || clients[i]->fd < 0)
         continue;
       if (FD_ISSET(clients[i]->fd, &rset)) {
-        // check for end of connection, close socket and deallocate
-        ws_frame *frame = malloc(sizeof(ws_frame));
-        bzero(frame, sizeof(ws_frame));
-        if (receive_ws_data(frame, clients[i]) == OP_CLOSE) {
-          close_client(clients[i], &allset);
-          clients[i] = NULL;
-        }
-        else {
-          char *message = "Hello from server";
-          int game_msg_opcode;
-          switch (frame->opcode) {
-          case OP_TEXT: // for testing
-            send_ws_message(clients[i], message, strlen(message));
-            break;
-          case OP_BIN: // for game messages
-            game_msg_opcode = handle_game_msg(frame->msg, clients[i],
-                                              games[clients[i]->game_id]);
-            printf("Game msg opcode: %d\n", game_msg_opcode);
-            break;
-          case OP_PING:
-            printf("Received Ping\n");
-
-            unsigned char pong[] = {0x8A, 0x00};
-            write(clients[i]->fd, pong, 2);
-            break;
-          case OP_CLOSE:
-            printf("Websocket close request received\n");
-            send_ws_close(clients[i]);
-            close_client(clients[i], &allset);
-            break;
-          default:
-            break;
+        if (FD_ISSET(clients[i]->fd, &http_allset)) { // Connection is HTTP
+          int result = parse_http_request(clients[i]);
+          if (result != 0) {
+            close_client(clients, i, &http_allset);
+            continue;
           }
-        }
 
-        free(frame);
-        if (--nready <= 0)
-          break;
+          result = route_request(clients[i]);
+          if (result == 1) { // if 1, request was upgraded to WS
+            FD_SET(clients[i]->fd, &ws_allset);
+            FD_CLR(clients[i]->fd, &http_allset);
+            continue;
+          }
+
+          // all connections are non-persistent so we can close them after
+          // reading
+          close_client(clients, i, &http_allset);
+
+          if (--nready_http <= 0)
+            break;
+        }
+        else if (FD_ISSET(clients[i]->fd, &ws_allset)) { // Connection is WS
+          // check for end of connection, close socket and deallocate
+          ws_frame *frame = malloc(sizeof(ws_frame));
+          bzero(frame, sizeof(ws_frame));
+          if (receive_ws_data(frame, clients[i]) == OP_CLOSE) {
+            close_client(clients, i, &ws_allset);
+            clients[i] = NULL;
+          }
+
+          else {
+            char *message = "Hello from server";
+            int game_msg_opcode;
+            switch (frame->opcode) {
+            case OP_TEXT: // for testing
+              send_ws_message(clients[i], message, strlen(message));
+              break;
+            case OP_BIN: // for game messages
+              game_msg_opcode = handle_game_msg(frame->msg, clients[i],
+                                                games[clients[i]->game_id]);
+              printf("Game msg opcode: %d\n", game_msg_opcode);
+              break;
+            case OP_PING:
+              printf("Received Ping\n");
+
+              unsigned char pong[] = {0x8A, 0x00};
+              write(clients[i]->fd, pong, 2);
+              break;
+            case OP_CLOSE:
+              printf("Websocket close request received\n");
+              send_ws_close(clients[i]);
+              close_client(clients, i, &ws_allset);
+              break;
+            default:
+              break;
+            }
+          }
+
+          free(frame);
+          if (--nready_ws <= 0)
+            break;
+        }
       }
     }
   }

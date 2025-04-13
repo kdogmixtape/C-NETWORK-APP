@@ -49,9 +49,9 @@ var CTX = null;
 
 var gameIntervalId = null;
 
+let playerBoard = new PlayerBoard();
 let ships = createShips();
 let cursor = new Cursor(cursorSpritesheet);
-let playerBoard = new PlayerBoard();
 
 document.addEventListener("mousemove", (e) => {
   const relativeX = e.clientX - canvas.offsetLeft;
@@ -65,6 +65,7 @@ document.addEventListener("mousemove", (e) => {
   }
 });
 
+// mouseup and mousedown for dragging ships
 canvas.addEventListener("mouseup", (e) => {
   const x = e.offsetX;
   const y = e.offsetY;
@@ -101,8 +102,6 @@ canvas.addEventListener("mousedown", (e) => {
     console.log("This is a click callback: ", c.x, c.y),
   );
 });
-
-// mouseup and mousedown for dragging ships
 
 window.addEventListener("keydown", (event) => {
   let key = event.key;

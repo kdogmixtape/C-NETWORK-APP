@@ -1,20 +1,23 @@
 class Ship {
-  constructor(x, y, w, h, length, sheetStartY, spritesheet) {
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
-    this.collisionW = w;
-    this.collisionH = h;
-    this.initialW = w;
-    this.initialH = h;
+  constructor(id, row, col, length, sheetStartY, spritesheet) {
+    this.id = id;
+    this.x = BOARD_OFFSET_X + BOARD_UNIT_SIZE * col;
+    this.y = BOARD_OFFSET_Y + BOARD_UNIT_SIZE * row;
+    this.w = BOARD_UNIT_SIZE;
+    this.h = BOARD_UNIT_SIZE * length;
+
+    this.collisionW = BOARD_UNIT_SIZE;
+    this.collisionH = BOARD_UNIT_SIZE * length;
+    this.initialW = BOARD_UNIT_SIZE;
+    this.initialH = BOARD_UNIT_SIZE * length;
     this.sheetStartY = sheetStartY;
-    this.boardRow = 0;
-    this.boardCol = 0;
+    this.boardRow = row;
+    this.boardCol = col;
     this.currentFrame = 0;
     this.length = length;
     this.spritesheet = spritesheet;
     this.direction = DIRECTION_DOWN;
+    this.originalDir = DIRECTION_DOWN;
   }
 
   draw() {
@@ -88,27 +91,26 @@ class Ship {
 
 function createShips() {
   let ships = [];
-  const lengths = [1, 2, 3, 3, 4, 5];
+  const lengths = [1, 2, 2, 3, 3, 4];
   const sheetStarts = [];
 
   var current = 0;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     current += UNIT_SIZE * i;
     sheetStarts.push(current);
   }
 
   for (let i = 0; i < lengths.length; i++) {
-    ships.push(
-      new Ship(
-        BOARD_OFFSET_X + BOARD_UNIT_SIZE * i,
-        BOARD_OFFSET_Y,
-        BOARD_UNIT_SIZE,
-        BOARD_UNIT_SIZE * lengths[i],
-        lengths[i],
-        sheetStarts[lengths[i] - 1],
-        battleshipSpritesheet,
-      ),
+    let ship = new Ship(
+      i + 1,
+      0,
+      i,
+      lengths[i],
+      sheetStarts[lengths[i] - 1],
+      battleshipSpritesheet,
     );
+    ships.push(ship);
+    playerBoard.moveShip(ship, 0, i);
   }
 
   return ships;
