@@ -21,14 +21,6 @@ char *get_header_val(client *conn, char *key);
 char *get_form_val(client *conn, char *key);
 
 /*
- * Handles sending protocol upgrade response via the HTTP protocol
- * @return error code (0 if successful)
- * @param socket file descriptor
- * @param base64 encoded ws key
- */
-int send_ws_upgrade_response(int fd, char *encoded_key);
-
-/*
  * Handles sending text/html content via the HTTP protocol. This function
  * frees the response memory for ease of use
  * @return error code (0 if successful)

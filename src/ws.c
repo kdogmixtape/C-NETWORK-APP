@@ -56,7 +56,11 @@ int receive_ws_data(ws_frame *dst_frame, client *conn)
   int nread = read(conn->fd, dst_frame->buf, sizeof(dst_frame->buf));
   if (nread == -1) {
     fprintf(stderr, "Error reading message\n");
-    return 0;
+    return OP_CLOSE;
+  }
+  else if (nread == 0) {
+    fprintf(stderr, "Client closed the connection\n");
+    return OP_CLOSE;
   }
 
   dst_frame->msg_len = dst_frame->buf[1] & 0x7f;

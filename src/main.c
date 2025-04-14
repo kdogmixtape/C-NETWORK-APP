@@ -8,6 +8,7 @@
 
 #include "game.h"
 #include "http.h"
+#include "structs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -26,21 +27,24 @@ void setup_socket(int *sockfd_ptr);
  *      clients is an array of client* to store the new client
  * post: a client connection has been allocated set up
  */
-client *accept_conn(int sockfd, client **clients, int *maxi);
+client *accept_conn(server_ctx* ctx);
 
 /*
  * Closes and deallocates a client struct
  * pre: client is an open connection and filled struct
  * post: client* is freed and socket is closed, removed from io mult set
  */
-void close_client(client **clients, int idx, fd_set *set);
+void close_client(server_ctx* ctx, int idx);
 
 /*
  * Processes clients listening on the provided fd
  * pre: sockfd is a socket setup using the setup_socket function
  * post: the program is done processing clients
  */
-void process_clients(int sockfd);
+void process_clients(server_ctx* ctx);
+
+int handle_http_conn(client *conn);
+int handle_ws_conn(server_ctx* ctx, client *conn);
 
 int main(int argc, char **argv)
 {
@@ -48,7 +52,11 @@ int main(int argc, char **argv)
 
   setup_socket(&serverfd);
   printf("Server listening for connections: %d\n", serverfd);
-  process_clients(serverfd);
+
+  server_ctx* ctx = malloc(sizeof(server_ctx));
+  bzero(ctx, sizeof(server_ctx));
+  ctx->fd = serverfd;
+  process_clients(ctx);
 
   return 0;
 }
@@ -98,18 +106,18 @@ void setup_socket(int *sockfd_ptr)
   }
 }
 
-client *accept_conn(int sockfd, client **clients, int *maxi)
+client *accept_conn(server_ctx* ctx)
 {
   // check param
-  if (sockfd < 0) {
-    fprintf(stderr, "Error invalid fd at accept_conn: %d\n", sockfd);
+  if (ctx->fd < 0) {
+    fprintf(stderr, "Error invalid fd at accept_conn: %d\n", ctx->fd);
     exit(EXIT_FAILURE);
   }
 
   client *new_client = malloc(sizeof(client));
   bzero(new_client, sizeof(client));
   new_client->cli_addr_len = sizeof(new_client->cli_addr);
-  new_client->fd = accept(sockfd, (SA *)&(new_client->cli_addr),
+  new_client->fd = accept(ctx->fd, (SA *)&(new_client->cli_addr),
                           &(new_client->cli_addr_len));
 
   // store ip str
@@ -117,10 +125,12 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
          sizeof(new_client->ip));
 
   int i = 0; // find an unused client to store the socket id
-  while (clients[i] != NULL && clients[i]->fd > 0 && i < FD_SETSIZE)
+  while (ctx->clients[i] != NULL && ctx->clients[i]->fd > 0 && i < FD_SETSIZE) {
     i++;
+  }
+
   if (i < FD_SETSIZE) {
-    clients[i] = new_client;
+    ctx->clients[i] = new_client;
   }
   else {
     fprintf(stderr, "Too many clients!\n");
@@ -129,142 +139,141 @@ client *accept_conn(int sockfd, client **clients, int *maxi)
     return NULL;
   }
 
-  if (i > *maxi)
-    *maxi = i;
-  printf("Connection accepted:\n\tIndex:%d\n\tFile Desc: %d\n", i,
-         new_client->fd);
+  if (i > ctx->maxi)
+    ctx->maxi = i;
+
+  if (new_client->fd > ctx->maxfd) {
+    ctx->maxfd = new_client->fd;
+  }
+
+  new_client->state = FD_HTTP;
 
   return new_client;
 }
 
-void close_client(client **clients, int idx, fd_set *set)
+void close_client(server_ctx* ctx, int idx)
 {
-  close(clients[idx]->fd);
-  FD_CLR(clients[idx]->fd, set);
-  free(clients[idx]);
-  clients[idx] = NULL;
+  close(ctx->clients[idx]->fd);
+  free(ctx->clients[idx]);
+  ctx->clients[idx] = NULL;
 }
 
-void process_clients(int sockfd)
+void process_clients(server_ctx* ctx)
 {
-  // check param
-  if (sockfd < 0) {
-    fprintf(stderr, "Error invalid fd at process_clients: %d\n", sockfd);
-    exit(EXIT_FAILURE);
-  }
+  int i;
+  int nready;
 
-  int i, maxi, maxfd;
-  int nready_http, nready_ws;
-  client *clients[FD_SETSIZE];
-  fd_set rset, http_allset, ws_allset;
-  game_data *games[MAX_GAMES];
-  int num_games = 0;
-
-  maxfd = sockfd;
-  maxi = -1;
-
-  FD_ZERO(&http_allset);
-  FD_ZERO(&ws_allset);
-  FD_SET(sockfd, &http_allset);
+  ctx->maxfd = ctx->fd;
+  ctx->maxi = -1;
 
   for (;;) {
-    rset = http_allset;
-    for (int i = 0; i <= maxfd; i++) {
-      if (FD_ISSET(i, &ws_allset)) {
-        FD_SET(i, &rset);
-      }
+    // rebuild the set each loop
+    FD_ZERO(&ctx->conn_io_set);
+    FD_SET(ctx->fd, &ctx->conn_io_set);
+    for (int i = 0; i <= ctx->maxi; ++i) {
+      if (ctx->clients[i] && ctx->clients[i]->fd > 0)
+        FD_SET(ctx->clients[i]->fd, &ctx->conn_io_set);
     }
 
-    nready_http = select(maxfd + 1, &rset, NULL, NULL, NULL);
+    nready = select(ctx->maxfd + 1, &ctx->conn_io_set, NULL, NULL, NULL);
+    if (nready == -1) {
+      perror("select");
+      exit(EXIT_FAILURE);
+    }
 
     // handle new http connections
-    if (FD_ISSET(sockfd, &rset)) {
+    if (FD_ISSET(ctx->fd, &ctx->conn_io_set)) {
       // setup new client
-      client *new_client = accept_conn(sockfd, clients, &maxi);
-
-      // if websocket (persistent), add to multiplexing set
-      if (new_client != NULL) {
-
-        // for testing, add to a game with self
-        games[num_games] = start_new_game(num_games, new_client, new_client);
-        num_games++;
-
-        FD_SET(new_client->fd, &http_allset);
-        if (new_client->fd > maxfd)
-          maxfd = new_client->fd;
-        if (--nready_http <= 0)
-          continue; // no more readable descriptors
+      client *new_client = accept_conn(ctx);
+      if (new_client == NULL) {
+        if (--nready <= 0)
+          continue;
       }
+
+      if (--nready <= 0)
+        continue;
     }
 
+    int res = 0;
     // read from current connections
-    for (i = 0; i <= maxi; i++) {
-      if (clients[i] == NULL || clients[i]->fd < 0)
+    for (i = 0; i <= ctx->maxi; i++) {
+      if (ctx->clients[i] == NULL || ctx->clients[i]->fd < 0)
         continue;
-      if (FD_ISSET(clients[i]->fd, &rset)) {
-        if (FD_ISSET(clients[i]->fd, &http_allset)) { // Connection is HTTP
-          int result = parse_http_request(clients[i]);
-          if (result != 0) {
-            close_client(clients, i, &http_allset);
-            continue;
+      if (FD_ISSET(ctx->clients[i]->fd, &ctx->conn_io_set)) {
+        switch (ctx->clients[i]->state) {
+        case FD_HTTP:
+          res = handle_http_conn(ctx->clients[i]);
+          if (res != 0) {
+            close_client(ctx, i);
           }
-
-          result = route_request(clients[i]);
-          if (result == 1) { // if 1, request was upgraded to WS
-            FD_SET(clients[i]->fd, &ws_allset);
-            FD_CLR(clients[i]->fd, &http_allset);
-            continue;
+          break;
+        case FD_WS:
+          res = handle_ws_conn(ctx, ctx->clients[i]);
+          if (res != 0) {
+            close_client(ctx, i);
           }
-
-          // all connections are non-persistent so we can close them after
-          // reading
-          close_client(clients, i, &http_allset);
-
-          if (--nready_http <= 0)
-            break;
+          break;
+        default:
+          break;
         }
-        else if (FD_ISSET(clients[i]->fd, &ws_allset)) { // Connection is WS
-          // check for end of connection, close socket and deallocate
-          ws_frame *frame = malloc(sizeof(ws_frame));
-          bzero(frame, sizeof(ws_frame));
-          if (receive_ws_data(frame, clients[i]) == OP_CLOSE) {
-            close_client(clients, i, &ws_allset);
-            clients[i] = NULL;
-          }
 
-          else {
-            char *message = "Hello from server";
-            int game_msg_opcode;
-            switch (frame->opcode) {
-            case OP_TEXT: // for testing
-              send_ws_message(clients[i], message, strlen(message));
-              break;
-            case OP_BIN: // for game messages
-              game_msg_opcode = handle_game_msg(frame->msg, clients[i],
-                                                games[clients[i]->game_id]);
-              printf("Game msg opcode: %d\n", game_msg_opcode);
-              break;
-            case OP_PING:
-              printf("Received Ping\n");
-
-              unsigned char pong[] = {0x8A, 0x00};
-              write(clients[i]->fd, pong, 2);
-              break;
-            case OP_CLOSE:
-              printf("Websocket close request received\n");
-              send_ws_close(clients[i]);
-              close_client(clients, i, &ws_allset);
-              break;
-            default:
-              break;
-            }
-          }
-
-          free(frame);
-          if (--nready_ws <= 0)
-            break;
+        if (--nready <= 0) {
+          break;
         }
       }
     }
   }
+}
+
+int handle_http_conn(client *conn)
+{
+  int result = parse_http_request(conn);
+  if (result != 0) {
+    return 1;
+  }
+
+  result = route_request(conn);
+  if (result == 1) { // if 1, request was upgraded to WS
+    conn->state = FD_WS;
+    return 0;
+  }
+
+  return 2; // all our http connections can be closed
+}
+
+int handle_ws_conn(server_ctx* ctx, client* conn)
+{
+  ws_frame *frame = malloc(sizeof(ws_frame));
+  bzero(frame, sizeof(ws_frame));
+  if (receive_ws_data(frame, conn) == OP_CLOSE) {
+    free(frame);
+    return 1;
+  }
+  else {
+    char *message = "Hello from server";
+    switch (frame->opcode) {
+    case OP_TEXT: // for testing
+      send_ws_message(conn, message, strlen(message));
+      break;
+    case OP_BIN: // for game messages
+      handle_game_msg(ctx, frame->msg, conn);
+      break;
+    case OP_PING:
+      printf("Received Ping\n");
+      unsigned char pong[] = {0x8A, 0x00};
+      write(conn->fd, pong, 2);
+      break;
+    case OP_CLOSE:
+      printf("Websocket close request received\n");
+      send_ws_close(conn); // may not need this here
+      free(frame);
+      return 2;
+      break;
+    default:
+      break;
+    }
+  }
+
+  free(frame);
+  return 0;
 }

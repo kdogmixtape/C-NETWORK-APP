@@ -42,6 +42,8 @@ const NUM_DIRECTIONS = 2;
 const WAVE_SPEED = 2;
 const waves = [];
 
+var canMoveShips = true;
+
 // Debug
 const DEBUG_MODE = false;
 
@@ -87,7 +89,7 @@ canvas.addEventListener("mousedown", (e) => {
   // check for click on shotboard
   // check for click on playerboard
 
-  if (cursor.shipAttached == null) {
+  if (cursor.shipAttached == null && canMoveShips) {
     for (let i = 0; i < ships.length; i++) {
       let ship = ships[i];
       const { x1, x2, y1, y2 } = ship.getBounds();

@@ -118,7 +118,6 @@ class PlayerBoard {
   // check all positions under ship to make sure we can drop it
   isValidDrop(id, row, col, length, dir) {
     for (let i = 0; i < length; i++) {
-      console.log(this.board[row][col], row, col);
       if (this.board[row][col] !== 0 && this.board[row][col] !== id) {
         return false;
       }

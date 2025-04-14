@@ -1,4 +1,5 @@
 #include "game.h"
+#include "structs.h"
 #include <stdio.h>
 
 const int SHIP_LENGTHS[] = {1, 2, 2, 3, 3, 4};
@@ -193,7 +194,7 @@ int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
   bzero(frame, sizeof(ws_frame));
   frame->opcode = 2;
   frame->msg_len = len + 1; // +1 for game msg opcode
-  frame->msg[0] = (0xFF & opcode) << 4;
+  frame->msg[0] = (0x0F & opcode) << 4;
   memcpy(frame->msg + 1, msg, len);
 
   int len_bytes = 0;
@@ -231,10 +232,10 @@ int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
   return 0;
 }
 
-int handle_game_msg(unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn,
-                    game_data *gd)
+int handle_game_msg(server_ctx* ctx, unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn)
 {
   int opcode = (ws_data[0] & 0xF0) >> 4;
+  game_data* gd = ctx->games[conn->game_id];
 
   switch (opcode) {
   case GAME_MSG_BOARD_SETUP:
@@ -250,6 +251,15 @@ int handle_game_msg(unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn,
 
     send_game_msg(GAME_MSG_BOARD_SETUP, "Success", sizeof("Success"),
                   conn->player_idx, gd);
+    break;
+  case GAME_MSG_READY:
+
+    // for testing, add to a game with self
+    if (ctx->num_games < MAX_GAMES) {
+      ctx->games[ctx->num_games] = start_new_game(ctx->num_games, conn, conn);
+      ctx->num_games++;
+    }
+
     break;
     // add more here for other msg types (shot, resign, etc)
   default:

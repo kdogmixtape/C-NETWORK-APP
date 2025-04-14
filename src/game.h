@@ -6,32 +6,6 @@
 #include <assert.h>
 #include <stdint.h>
 
-#define P1 0
-#define P2 1
-#define bool int
-#define TRUE 1
-#define FALSE 0
-#define NUM_SHIPS 6 // 1a, 2a, 2b, 3a, 3b, 4
-#define MAX_GAMES 20
-
-struct {
-  uint64_t p1_board;
-  uint64_t p1_shot_board;
-  uint64_t p1_hit_board; // might need this to track hits specifically
-  uint64_t p1_ships[NUM_SHIPS];
-
-  uint64_t p2_board;
-  uint64_t p2_shot_board;
-  uint64_t p2_hit_board;
-  uint64_t p2_ships[NUM_SHIPS];
-
-  int8_t winner; // default to -1
-  client *players[2];
-
-  int player_turn; // default to 0 for player 1
-
-  // other stuff we talked about here
-} typedef game_data;
 
 /**
  * Below are some of the opcodes for our game
@@ -92,8 +66,7 @@ enum GAME_MSG_OP {
  * 0101 010 011 1
  *
  */
-int handle_game_msg(unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn,
-                    game_data *gd);
+int handle_game_msg(server_ctx* ctx, unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn);
 
 /**
  *  sends a game message using ws helpers using the params

@@ -12,7 +12,7 @@
 #define MAX_HEADER_VAL_SIZE 128
 #define MAX_FORM_KEY_SIZE 64
 #define MAX_FORM_VAL_SIZE 128
-#define MAX_COOKIE_VAL_SIZE 256 
+#define MAX_COOKIE_VAL_SIZE 256
 #define MAX_HEADERS 30
 #define MAX_FORM_FIELDS 20
 #define MAX_REQUEST_SIZE 4096
@@ -40,5 +40,13 @@
 
 // http methods allowed
 enum HTTP_METHOD { GET, POST } typedef http_method;
+
+#define P1 0
+#define P2 1
+#define bool int
+#define TRUE 1
+#define FALSE 0
+#define NUM_SHIPS 6 // 1a, 2a, 2b, 3a, 3b, 4
+#define MAX_GAMES 20
 
 #endif

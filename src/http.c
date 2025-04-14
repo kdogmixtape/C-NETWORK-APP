@@ -248,13 +248,17 @@ void upgrade_conn(client *conn)
 {
   char *ws_accept_encoded = build_websocket_accept_header(conn);
   if (ws_accept_encoded == NULL) {
-    perror("Error upgrading connection, ws key not found");
+    fprintf(stderr, "Error upgrading connection: ws key not found\n");
     close(conn->fd);
-    exit(EXIT_FAILURE);
+    return;
   }
 
   // upgrade handshake
-  send_ws_upgrade_response(conn->fd, ws_accept_encoded);
+  http_response* res = build_http_response(101, "Switching Protocols", NULL, 0, NULL);
+  add_header(res, "Upgrade", "websocket");
+  add_header(res, "Connection", "Upgrade");
+  add_header(res, "Sec-WebSocket-Accept", ws_accept_encoded);
+  send_http_response(conn->fd, res);
 }
 
 void add_header(http_response *response, char *key, char *value)
@@ -290,19 +294,6 @@ http_response *build_http_response(int status_code, char *message,
   return res;
 }
 
-int send_ws_upgrade_response(int fd, char *encoded_key)
-{
-  char *response = malloc(MAX_RESPONSE_SIZE);
-  int n = sprintf(
-      response,
-      "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: "
-      "Upgrade\r\n"
-      "Sec-WebSocket-Accept: %s\r\n\r\n",
-      encoded_key);
-  int nsent = write(fd, response, n);
-  printf("--- Sent %d byte upgrade response ---\n%s\n", nsent, response);
-  return 0;
-}
 
 // helper for converting response struct to a string with headers and data
 char *http_res_tostr(http_response *res, int *res_len)
@@ -337,8 +328,10 @@ int send_http_response(int fd, http_response *res)
   int res_len = 0;
   char *response = http_res_tostr(res, &res_len);
   int n = write(fd, response, res_len);
-  printf("--- Sent %d byte Response (of len %d) ---\n%s\n", n, res_len,
-         res->version_line);
+  if (n <= 0) {
+    perror("Error sending http response");
+    return 1;
+  }
 
   free(response);
   free(res);
@@ -361,11 +354,9 @@ int parse_http_request(client *conn)
     return 2;
   }
   else if (nread == 0) {
-    printf("Client closed the connection");
+    printf("Client closed the connection\n");
     return 3;
   }
-
-  printf("--- Received request length: %ld ---\n%s\n", nread, buf);
 
   // open buffer for parsing headers
   FILE *stream = fmemopen(buf, nread, "r");
@@ -418,10 +409,6 @@ int parse_http_request(client *conn)
       char *and_idx = strstr(line, "&");
 
       // end string at equals for parsing
-      // if no =, we've parsed the last field
-      if (equal_idx == NULL) {
-        break;
-      }
       *equal_idx = '\0';
       if (and_idx != NULL) {
         *and_idx = '\0';
@@ -432,10 +419,15 @@ int parse_http_request(client *conn)
 
       // else move to next value
       line = and_idx + 1;
+
+      // if no &, we've parsed the last field
+      if (and_idx == NULL) {
+        break;
+      }
     }
   }
 
-  //printf("Received request: %s %s\n", method, conn->path);
+  printf("Received request: %s %s on FD: %d\n", method, conn->path, conn->fd);
 
   fclose(stream); // Must close stream first
   free(buf);
