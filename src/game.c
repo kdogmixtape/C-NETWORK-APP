@@ -187,8 +187,8 @@ game_data *start_new_game(int idx, client *player1, client *player2)
   return game;
 }
 
-int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
-                  game_data *gd)
+int send_game_msg(game_msg_op opcode, char *msg, int len, client *conn,
+                  game_data *gd, int broadcast)
 {
   ws_frame *frame = malloc(sizeof(ws_frame));
   bzero(frame, sizeof(ws_frame));
@@ -200,7 +200,7 @@ int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
   int len_bytes = 0;
   unsigned char *frame_bytes = ws_frame_to_bytes(frame, &len_bytes);
 
-  if (player_idx < 0) {
+  if (broadcast) {
     printf("Broadcasting msg: ");
     for (int i = 0; i < len_bytes; i++) {
       printf("%c", frame_bytes[i]);
@@ -215,13 +215,13 @@ int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
     }
   }
   else {
-    printf("Sending msg to player %d: ", player_idx);
+    printf("Sending msg to player %d: ", conn->player_idx);
     for (int i = 0; i < len_bytes; i++) {
       printf("%c", frame_bytes[i]);
     }
 
     printf("\n");
-    int n = write(gd->players[player_idx]->fd, frame_bytes, len_bytes);
+    int n = write(conn->fd, frame_bytes, len_bytes);
     if (n <= 0) {
       perror("Error sending msg to player");
     }
@@ -232,10 +232,34 @@ int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
   return 0;
 }
 
-int handle_game_msg(server_ctx* ctx, unsigned char ws_data[MAX_WS_MSG_SIZE], client *conn)
+int handle_game_msg(server_ctx *ctx, unsigned char ws_data[MAX_WS_MSG_SIZE],
+                    client *conn)
 {
   int opcode = (ws_data[0] & 0xF0) >> 4;
-  game_data* gd = ctx->games[conn->game_id];
+
+  // Find user's game if exists
+  game_data *gd = NULL;
+  if (conn->game_id > MAX_GAMES) {
+    fprintf(stderr, "Error: invalid game_id %d for connection %d\n",
+            conn->game_id, conn->fd);
+    return 1;
+  }
+  else if (conn->game_id >= 0) {
+    gd = ctx->games[conn->game_id];
+    if (gd == NULL) {
+      fprintf(stderr, "Error: game_id %d does not exist for connection %d\n",
+              conn->game_id, conn->fd);
+      send_game_msg(GAME_MSG_ERROR, "Error: game invalid",
+                    strlen("Error: game invalid"), conn, gd, 0);
+      return 2;
+    }
+  }
+
+  if (gd == NULL && opcode != GAME_MSG_READY) {
+    send_game_msg(GAME_MSG_ERROR, "Invalid Msg: player not in game",
+                  strlen("Invalid Msg: player not in game"), conn, gd, 0);
+    return 3;
+  }
 
   switch (opcode) {
   case GAME_MSG_BOARD_SETUP:
@@ -244,25 +268,25 @@ int handle_game_msg(server_ctx* ctx, unsigned char ws_data[MAX_WS_MSG_SIZE], cli
     unsigned char *board_str = ws_data + 1;
     int err = parse_validate_board(board_str, gd->p1_ships, &gd->p1_board);
     if (err != 0) {
-      send_game_msg(GAME_MSG_ERROR, "Invalid Board", sizeof("Invalid Board"),
-                    conn->player_idx, gd);
+      send_game_msg(GAME_MSG_ERROR, "Invalid Board", strlen("Invalid Board"),
+                    conn, gd, 0);
       return 0;
     }
 
-    send_game_msg(GAME_MSG_BOARD_SETUP, "Success", sizeof("Success"),
-                  conn->player_idx, gd);
+    send_game_msg(GAME_MSG_BOARD_SETUP, "Success", strlen("Success"), conn, gd,
+                  0);
     break;
   case GAME_MSG_READY:
-
-    // for testing, add to a game with self
     if (ctx->num_games < MAX_GAMES) {
       ctx->games[ctx->num_games] = start_new_game(ctx->num_games, conn, conn);
       ctx->num_games++;
     }
-
+    send_game_msg(GAME_MSG_READY, "Success", strlen("Success"), conn, gd, 0);
     break;
     // add more here for other msg types (shot, resign, etc)
   default:
+    send_game_msg(GAME_MSG_ERROR, "Invalid Msg", strlen("Invalid Msg"), conn,
+                  gd, 0);
     printf("Unrecognized game msg\n");
     break;
   }

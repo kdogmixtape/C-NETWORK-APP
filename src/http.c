@@ -28,10 +28,6 @@ char *get_cookie_val(client *conn, char *key)
     char *equal_idx = strstr(cookies, "=");
     char *colon_idx = strstr(cookies, ";");
 
-    // if no "=" then we've parsed the last cookie
-    if (equal_idx == NULL) {
-      return NULL;
-    }
 
     *equal_idx = '\0';
     if (colon_idx != NULL) {
@@ -46,6 +42,11 @@ char *get_cookie_val(client *conn, char *key)
     }
 
     cookies = colon_idx + 1;
+    
+    // if no ";" then we've parsed the last cookie
+    if (colon_idx == NULL) {
+      return NULL;
+    }
   }
 
   free(name);

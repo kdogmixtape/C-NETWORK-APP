@@ -28,7 +28,8 @@ websocket.onmessage = (event) => {
 
   switch (opcode) {
     case GameMsg.READY:
-      console.log("Player is ready to join a game");
+      console.log("Player joined a game");
+      statusText.innerHTML = "Joined game!";
       break;
     case GameMsg.SYNC:
       console.log("Syncing game state");
@@ -36,6 +37,7 @@ websocket.onmessage = (event) => {
     case GameMsg.BOARD_SETUP:
       console.log("Board setup received");
       canMoveShips = false;
+      statusText.innerHTML = "Board Confirmed!";
       break;
     case GameMsg.TURN:
       console.log("Turn update from server");

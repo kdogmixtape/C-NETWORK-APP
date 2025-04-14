@@ -108,12 +108,6 @@ void setup_socket(int *sockfd_ptr)
 
 client *accept_conn(server_ctx* ctx)
 {
-  // check param
-  if (ctx->fd < 0) {
-    fprintf(stderr, "Error invalid fd at accept_conn: %d\n", ctx->fd);
-    exit(EXIT_FAILURE);
-  }
-
   client *new_client = malloc(sizeof(client));
   bzero(new_client, sizeof(client));
   new_client->cli_addr_len = sizeof(new_client->cli_addr);
@@ -147,6 +141,7 @@ client *accept_conn(server_ctx* ctx)
   }
 
   new_client->state = FD_HTTP;
+  new_client->game_id = -1;
 
   return new_client;
 }

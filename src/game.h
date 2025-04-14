@@ -70,11 +70,10 @@ int handle_game_msg(server_ctx* ctx, unsigned char ws_data[MAX_WS_MSG_SIZE], cli
 
 /**
  *  sends a game message using ws helpers using the params
- *  specified in the game_msg struct. If player_idx is negative,
+ *  specified in the game_msg struct. If broadcast is set,
  *  all players will be notified of the message
  */
-int send_game_msg(game_msg_op opcode, char *msg, int len, int player_idx,
-                  game_data *gd);
+int send_game_msg(game_msg_op opcode, char *msg, int len, client* conn, game_data *gd, int broadcast);
 
 /*
  * quick helper for creating a new game with players'
