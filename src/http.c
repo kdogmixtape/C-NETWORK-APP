@@ -28,6 +28,9 @@ char *get_cookie_val(client *conn, char *key)
     char *equal_idx = strstr(cookies, "=");
     char *colon_idx = strstr(cookies, ";");
 
+    if (equal_idx == NULL) {
+      return NULL;
+    }
 
     *equal_idx = '\0';
     if (colon_idx != NULL) {
