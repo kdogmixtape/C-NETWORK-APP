@@ -5,8 +5,9 @@ const waveImg1 = document.getElementById("waves1");
 const waveImg2 = document.getElementById("waves2");
 const wavesImgs = [waveImg1, waveImg2];
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// use if we want canvas to be max width & height
+//canvas.width = window.innerWidth;
+//canvas.height = window.innerHeight;
 
 // all caps means global constant
 // these values are designed to scale properly when the window scales
@@ -18,7 +19,6 @@ const NUM_COLUMNS = canvas.height / UNIT_SIZE;
 
 const BACKGROUND_COL = "#5b6ee1";
 const BOARD_COL = "#5162c8";
-const BUTTON_COL = "blue";
 const TEXT_COL = "green";
 
 const BOARD_DIM = 8;
@@ -42,6 +42,8 @@ const NUM_DIRECTIONS = 2;
 const WAVE_SPEED = 2;
 const waves = [];
 
+var canMoveShips = true;
+
 // Debug
 const DEBUG_MODE = false;
 
@@ -49,15 +51,9 @@ var CTX = null;
 
 var gameIntervalId = null;
 
+let playerBoard = new PlayerBoard();
 let ships = createShips();
 let cursor = new Cursor(cursorSpritesheet);
-let playerBoard = new PlayerBoard();
-let ui = new UI();
-ui.buttons.push(
-  new Button(0, 0, UNIT_SIZE * 3, UNIT_SIZE, "hello", () =>
-    console.log("hello"),
-  ),
-);
 
 document.addEventListener("mousemove", (e) => {
   const relativeX = e.clientX - canvas.offsetLeft;
@@ -71,6 +67,7 @@ document.addEventListener("mousemove", (e) => {
   }
 });
 
+// mouseup and mousedown for dragging ships
 canvas.addEventListener("mouseup", (e) => {
   const x = e.offsetX;
   const y = e.offsetY;
@@ -92,7 +89,7 @@ canvas.addEventListener("mousedown", (e) => {
   // check for click on shotboard
   // check for click on playerboard
 
-  if (cursor.shipAttached == null) {
+  if (cursor.shipAttached == null && canMoveShips) {
     for (let i = 0; i < ships.length; i++) {
       let ship = ships[i];
       const { x1, x2, y1, y2 } = ship.getBounds();
@@ -107,8 +104,6 @@ canvas.addEventListener("mousedown", (e) => {
     console.log("This is a click callback: ", c.x, c.y),
   );
 });
-
-// mouseup and mousedown for dragging ships
 
 window.addEventListener("keydown", (event) => {
   let key = event.key;

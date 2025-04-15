@@ -2,6 +2,7 @@
 #define HTTP_H
 
 #include "structs.h"
+#include <stdio.h>
 
 /*
  * Finds the value of a request header by key
@@ -20,28 +21,32 @@ char *get_header_val(client *conn, char *key);
 char *get_form_val(client *conn, char *key);
 
 /*
- * Handles sending protocol upgrade response via the HTTP protocol
+ * Handles sending text/html content via the HTTP protocol. This function
+ * frees the response memory for ease of use
  * @return error code (0 if successful)
  * @param socket file descriptor
- * @param base64 encoded ws key
+ * @param response object
  */
-int send_ws_upgrade_response(int fd, char *encoded_key);
+int send_http_response(int fd, http_response *res);
 
 /*
- * Handles sending redirect via the HTTP protocol
- * @return error code (0 if successful)
- * @param socket file descriptor
- * @param url to redirect to
+ * Helper for building an http response object
+ * Adds some headers by default for our protocol
  */
-int send_http_redirect(int fd, char *url);
+http_response *build_http_response(int status_code, char *message,
+                                   char *content, int content_len,
+                                   char *content_type);
 
 /*
- * Handles sending text/html content via the HTTP protocol
- * @return error code (0 if successful)
- * @param socket file descriptor
- * @param text or html content
+ * Adds a header to an http response object
  */
-int send_http_response(int fd, int status_code, char *message, char *content, int content_len, char* content_type);
+void add_header(http_response *response, char *key, char *value);
+
+/**
+ * validates that the request is authorized with a c-game-auth cookie
+ * in the request
+ */
+int validate_request(client* conn);
 
 /*
  * Handles sending text/html content via the HTTP protocol
